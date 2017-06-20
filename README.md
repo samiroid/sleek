@@ -1,1 +1,1 @@
-# chatBotz
+# Sleek, a chatbot for Slack
