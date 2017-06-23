@@ -47,3 +47,17 @@ def test_stress_survey():
 	#remove test DB
 	os.remove(DB_path)
 
+
+def test_toggle_survey():
+	assert False == True
+	#create user
+	#backend
+	#check it's active
+
+	#disable user
+
+	#check it's inactive
+
+	#enable user
+
+	#check it's active
