@@ -21,10 +21,12 @@ def __create_DB(DB_path, override=False):
 	"""
 		Create database with tables 'users' and 'surveys'
 	"""
-	USERS =        ''' CREATE TABLE users(user_id TEXT PRIMARY KEY, username TEXT, active INTEGER DEFAULT 1) '''
+	USERS =        ''' CREATE TABLE users(user_id TEXT PRIMARY KEY, username TEXT, 
+										  active INTEGER DEFAULT 1) '''
 	
 	USER_SURVEYS = ''' CREATE TABLE user_surveys(user_id TEXT, survey_id TEXT, 
-										         am_check TEXT, pm_check TEXT, active INTEGER DEFAULT 1, PRIMARY KEY(user_id, survey_id))  '''
+										         am_check TEXT, pm_check TEXT, active INTEGER DEFAULT 1, 
+										         PRIMARY KEY(user_id, survey_id))  '''
 
 	SURVEYS = ''' CREATE TABLE surveys(survey_id TEXT, conf TEXT)  '''
 
@@ -66,6 +68,13 @@ def __get(DB_path, sql, params=None):
 	db.close()	
 	return res
 
+def __update(DB_path, sql, params):
+	db = sqlite3.connect(DB_path)
+	cursor = db.cursor()		
+	cursor.execute(sql, params)
+	db.commit()
+	db.close()
+
 def __put(DB_path, table_name, row):
 	"""
 		row is a dictionary: {column: value}
@@ -102,43 +111,15 @@ def create_survey(DB_path, survey):
 
 def delete_user(DB_path, user_id):
 	sql = '''DELETE FROM users WHERE user_id=?'''
-	db = sqlite3.connect(DB_path)
-	cursor = db.cursor()	
-	cursor.execute(sql, (user_id,))
-	db.commit()
-	db.close()
+	__update(DB_path, sql, (user_id,))		
 
 def get_user(DB_path, user_id):
-	sql = '''SELECT * FROM users WHERE user_id=?'''
+	sql = '''SELECT * FROM users WHERE user_id=?'''	
 	return __get(DB_path, sql,(user_id,))[0]
 
-	# db = sqlite3.connect(DB_path)
-	# cursor = db.cursor()	
-	# cursor.execute(sql, (user_id,))
-	# user = cursor.fetchone()	
-	# db.close()	
-	# return user
-
-# def get_user(DB_path, user_id):
-# 	sql = '''SELECT * FROM users WHERE user_id=?'''
-# 	return __get(DB_path, sql, (user_id,))
-	# db = sqlite3.connect(DB_path)
-	# cursor = db.cursor()	
-	# cursor.execute(sql, )
-	# user = cursor.fetchone()	
-	# db.close()	
-	# return user
-
 def get_report(DB_path, user_id, survey_id):
-	sql = '''SELECT * FROM {} WHERE user_id=? order by timestamp DESC'''.format("survey_"+survey_id)
+	sql = '''SELECT * FROM {} WHERE user_id=? order by timestamp DESC'''.format("survey_"+survey_id)	
 	return __get(DB_path, sql,(user_id,))
-
-	# db = sqlite3.connect(DB_path)
-	# cursor = db.cursor()	
-	# cursor.execute(sql, (user_id,))
-	# resp = cursor.fetchall()	
-	# db.close()	
-	# return resp
 
 def init(DB_path, override=False):
 	"""
@@ -147,14 +128,9 @@ def init(DB_path, override=False):
 	if override:
 		__create_DB(DB_path)	
 	else:
-		#check if there is a users table
-		check_table_sql = ''' SELECT count(*) FROM sqlite_master WHERE type='table' AND name='users' '''
-		db = sqlite3.connect(DB_path)
-		cursor = db.cursor()	
-		cursor.execute(check_table_sql)
-		if cursor.fetchone()[0]	== 0:
-			__create_DB(DB_path)	
-		db.close()	
+		#create only if there is not a users table already
+		if not __table_exists(DB_path, 'users'):		
+			__create_DB(DB_path)			
 
 def join_survey(DB_path, user_id, survey_id, am_check, pm_check):
 	if not __table_exists(DB_path, "survey_"+survey_id):
@@ -166,36 +142,27 @@ def join_survey(DB_path, user_id, survey_id, am_check, pm_check):
 		raise RuntimeError("user {} already joined survey {}".format(user_id, survey_id))
 
 def list_surveys(DB_path,user_id=None):	
-	raise NotImplementedError
-	resp = cursor.fetchall()	
-	db.close()	
-	return resp
+	if user_id is None:
+		sql = ''' SELECT * FROM surveys'''
+		return __get(DB_path, sql)
+	else:
+		sql = ''' SELECT * FROM user_surveys WHERE user_id=?'''
+		return __get(DB_path, sql,(user_id,))
 
 def save_response(DB_path, survey_id, response):
 	__put(DB_path, "survey_"+survey_id, response)	
 
 def schedule_survey(DB_path, user_id, survey_id, am_check, pm_check):
 	sql = '''UPDATE user_surveys SET am_check=?, pm_check=? WHERE user_id=? AND survey_id=?'''
-	db = sqlite3.connect(DB_path)
-	cursor = db.cursor()	
-	cursor.execute(sql, (am_check, pm_check, user_id, survey_id))
-	db.commit()
-	db.close()
+	__update(DB_path, sql, (am_check, pm_check, user_id, survey_id))	
 
 def toggle_user(DB_path, user_id, active=True):
 	sql = '''UPDATE users SET active=? WHERE user_id=?'''
-	db = sqlite3.connect(DB_path)
-	cursor = db.cursor()	
-	cursor.execute(sql, (active, user_id))
-	db.commit()
-	db.close()
+	__update(DB_path, sql, (active, user_id))	
 
 def toggle_survey(DB_path, user_id, survey_id, active=True):
 	sql = '''UPDATE user_surveys SET active=? WHERE user_id=? AND survey_id=?'''
-	db = sqlite3.connect(DB_path)
-	cursor = db.cursor()	
-	cursor.execute(sql, (active, user_id, survey_id))
-	db.commit()
-	db.close()
+	__update(DB_path, sql, (active, user_id, survey_id))
+	
 
 

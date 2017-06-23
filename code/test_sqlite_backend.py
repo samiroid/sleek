@@ -15,9 +15,9 @@ def test_get():
 	backend.init(DB_path,override=True)
 	assert os.path.isfile(DB_path)
 	#insert a few rows into the users table
-	backend.__insert_row(DB_path, "users", {"user_id":"1","username":"user 1"})
-	backend.__insert_row(DB_path, "users", {"user_id":"2","username":"user 2"})
-	backend.__insert_row(DB_path, "users", {"user_id":"3","username":"user 3"})
+	backend.__put(DB_path, "users", {"user_id":"1","username":"user 1"})
+	backend.__put(DB_path, "users", {"user_id":"2","username":"user 2"})
+	backend.__put(DB_path, "users", {"user_id":"3","username":"user 3"})
 	#make sure rows were inserted
 	sql = '''SELECT * FROM users '''
 	db = sqlite3.connect(DB_path)
@@ -192,9 +192,9 @@ def test_init():
 	backend.init(DB_path,override=True)
 	assert os.path.isfile(DB_path)
 	#insert a few rows into the users table
-	backend.__insert_row(DB_path, "users", {"user_id":"1","username":"user 1"})
-	backend.__insert_row(DB_path, "users", {"user_id":"2","username":"user 2"})
-	backend.__insert_row(DB_path, "users", {"user_id":"3","username":"user 3"})
+	backend.__put(DB_path, "users", {"user_id":"1","username":"user 1"})
+	backend.__put(DB_path, "users", {"user_id":"2","username":"user 2"})
+	backend.__put(DB_path, "users", {"user_id":"3","username":"user 3"})
 	#make sure rows are preserved
 	sql = '''SELECT * FROM users '''
 	db = sqlite3.connect(DB_path)
@@ -224,9 +224,9 @@ def test_insert_row():
 	#create the same DB *with* override
 	backend.init(DB_path,override=True)
 	backend.__create_table(DB_path, "some_table", ["a_field","b_field","sea_field"],override=True)
-	backend.__insert_row(DB_path, "some_table", {"a_field":"a_field_1","b_field":"b_field_1","sea_field":"sea_field_1"})
-	backend.__insert_row(DB_path, "some_table", {"a_field":"a_field_2","b_field":"b_field_2","sea_field":"sea_field_2"})
-	backend.__insert_row(DB_path, "some_table", {"a_field":"a_field_3","b_field":"b_field_3","sea_field":"sea_field_3"})
+	backend.__put(DB_path, "some_table", {"a_field":"a_field_1","b_field":"b_field_1","sea_field":"sea_field_1"})
+	backend.__put(DB_path, "some_table", {"a_field":"a_field_2","b_field":"b_field_2","sea_field":"sea_field_2"})
+	backend.__put(DB_path, "some_table", {"a_field":"a_field_3","b_field":"b_field_3","sea_field":"sea_field_3"})
 	sql = '''SELECT * FROM some_table '''
 	db = sqlite3.connect(DB_path)
 	cursor = db.cursor()	
@@ -376,7 +376,7 @@ def test_toggle_survey():
 	user_id="u1"
 	survey_id="some_survey"
 	survey = {"user_id":user_id,"survey_id":survey_id,"pm_check":"1","am_check":"2"}
-	backend.__insert_row(DB_path, "user_surveys", survey)
+	backend.__put(DB_path, "user_surveys", survey)
 	#check it's *active*
 	sql = '''SELECT * FROM user_surveys WHERE user_id=? AND survey_id=?'''
 	db = sqlite3.connect(DB_path)
