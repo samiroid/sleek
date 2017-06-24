@@ -1,69 +1,73 @@
-import os
-import pytest
-import sqlite_backend as backend
-import sqlite3
+import argparse
+import json
 import sleek
+import sqlite_backend as backend
+import os
 
-DB_path="DATA/some.db"
-try:
-	os.remove(DB_path)
-except OSError:
-	pass
-	
-backend.init(DB_path)
-sleep_survey = { "survey_id": "sleep",
- 				  "survey": [  { "id": "sleep_hours",
-       							  "question": "how many hours have you slept yesterday?",
-	       						   "choices": ["<4", 4, 5, 6, 7, 8, ">8"]},
-	    						{ "id": "sleep_quality",
-	       						   "question": "In a scale from 1 to 5, how do you rate the quality of your sleep?",
-	       							"choices": [1,2,3,4,5] }  
-	       					]
-				}
- 
+def delete_survey(DB_path, survey_id):
+	"""
+		Delete a survey
+		survey_id: survey id
+	"""
+	backend.delete_survey(DB_path, survey_id)
 
-stress_survey = { "survey_id": "stress",
- 				  "survey": [  {"id": "stress_level",
-	       						"question": "In a scale from 1 to 5, how do you rate your stress level ?",
-	       						"choices": [1,2,3,4,5] }
-                  			]
-				}
+def load_surveys(DB_path, path):
+	"""
+		Loads surveys in batch mode
+		path: path to folder containing surveys in json format
+	"""
+	for fname in os.listdir(path):	
+		if os.path.splitext(path+fname)[1]!=".json":
+			print "ignored %s"% fname 
+			continue			
+		with open(path+fname, 'r') as f:					
+			survey = json.load(f)
+			backend.create_survey(DB_path, survey)			
 
+def run_server():
+	raise NotImplementedError
 
-backend.create_survey(DB_path, sleep_survey)
-backend.create_survey(DB_path, stress_survey)
+def run_local():
+	raise NotImplementedError
 
-# backend.create_table(DB_path, "some_table", ["a_field","b_field","sea_field"],override=True)
-# backend.insert_row(DB_path, "some_table", {"a_field":"a_field_1","b_field":"b_field_1","sea_field":"sea_field_1"})
-# backend.insert_row(DB_path, "some_table", {"a_field":"a_field_2","b_field":"b_field_2","sea_field":"sea_field_2"})
-# backend.insert_row(DB_path, "some_table", {"a_field":"a_field_3","b_field":"b_field_3","sea_field":"sea_field_3"})
+def sync_users():
+	raise NotImplementedError
 
+def upload_survey(DB_path, survey):
+	"""
+		Uploads a survey
+		survey: a dictionary specifying a survey
+	"""
+	backend.create_survey(DB_path, survey)
 
-# sql = '''SELECT * FROM some_table '''
-# db = sqlite3.connect(DB_path)
-# cursor = db.cursor()	
-# cursor.execute(sql)
-# print cursor.fetchall()	
-# db.close()	
-	
-
-# try:
-# 	os.remove(DB_path)
-# except OSError:
-# 	pass
-
-# bot_name="sleek"
-# api_token = os.environ.get('SLACK_BOT_TOKEN')
+def get_parser():
+    parser = argparse.ArgumentParser(description="Main Sleek")
+    parser.add_argument('-load_surveys', type=str, help='path to a folder with the surveys in json format')     
+    parser.add_argument('-api_token', type=str, help="Slack API token")
+    parser.add_argument('-server_mode', type=bool, action="store_true")
+    
 
 
-# print "hello"
-# cfg={ 
-# 	  "greet": ["ciao","oi","holla :)"],
-# 	  "announce": "This is a test chat bot",
-# 	  "nack": ["q?!", "no lo se","!?"],
-#       "ack": ["roger","okidoki"],
-# 	  "help": "Please some help!"	
-# 	}
-# #create Sleek instance with default config
-# bot = sleek.Sleek(api_token,"bogus", DB_path)
-# assert bot.greet() in sleek.default_bot_cfg["greet"]
+    # parser.add_argument('-output', type=str, required=True,
+    #                     help='output folder')       
+    # parser.add_argument('-feats', type=str, choices=['bow_bin','boe_bin','boe_freq'], nargs='+',
+    #                     help='features')                             
+    # parser.add_argument('-cue_feats', type=str, nargs=2,
+    #                     help='features')        
+    # parser.add_argument('-w2v', type=str, nargs='+',
+    #                     help='path to WORD embeddings')
+    # parser.add_argument('-u2v', type=str, nargs='+',
+    #                     help='path to USER embeddings')
+    # parser.add_argument('-bwc', type=str, 
+    #                     help='path to brown clusters')    
+    # parser.add_argument('-lda', type=str, nargs=2,
+    #                     help='path to LDA and LDA idx')    
+    # parser.add_argument('-vocab_size', type=int, 
+    #                     help='max number of types to keep in the vocabulary')    
+    return parser
+
+if __name__=="__main__":	
+	parser = get_parser()
+	args = parser.parse_args()
+
+

@@ -46,31 +46,33 @@ def test_table_exists():
 	db.close()
 	assert backend.__table_exists(DB_path, "users")
 
-
 def test_add_user():
 	#create DB
 	backend.init(DB_path,override=True)
 	#create user with default check times
-	user_1="alice"
-	id_1="123"
-	backend.add_user(DB_path, id_1, user_1)
+	username_1="alice"
+	user_id_1="123"
+	#make sure user does not exist	
+	user = backend.get_user(DB_path, user_id_1)
+	assert user == []
+	backend.add_user(DB_path, user_id_1, username_1)
 	#create user with specific check times
-	user_2="bob"
-	id_2="456"	
-	backend.add_user(DB_path, id_2, user_2)	
-	#check that user_1 was correctly created
+	username_2="bob"
+	user_id_2="456"	
+	backend.add_user(DB_path, user_id_2, username_2)	
+	#check that username_1 was correctly created
 	db = sqlite3.connect(DB_path)
 	cursor = db.cursor()
 	sql = ''' SELECT * FROM users WHERE user_id=? '''
-	cursor.execute(sql, (id_1,))
+	cursor.execute(sql, (user_id_1,))
 	resp = cursor.fetchone()	
-	assert resp[backend.USER_ID]   == id_1 and \
-		   resp[backend.USER_NAME] == user_1
-	#check that user_2 was correctly created
-	cursor.execute(sql, (id_2,))
+	assert resp[backend.USER_ID]   == user_id_1 and \
+		   resp[backend.USER_NAME] == username_1
+	#check that username_2 was correctly created
+	cursor.execute(sql, (user_id_2,))
 	resp = cursor.fetchone()	
-	assert resp[backend.USER_ID]  == id_2 and \
-	       resp[backend.USER_NAME] == user_2 and \
+	assert resp[backend.USER_ID]  == user_id_2 and \
+	       resp[backend.USER_NAME] == username_2 and \
 	       resp[backend.USER_ACTIVE] == 1
 	#remove test DB
 	os.remove(DB_path)
@@ -161,10 +163,72 @@ def test_delete_user():
 	#remove test DB
 	os.remove(DB_path)
 
+def test_delete_survey():	
+	backend.init(DB_path)	
+	#create a survey
+	survey_id="stress"
+	survey = { "survey_id": survey_id,
+			   "survey": [ {"id": "stress_level",
+		        			"question": "In a scale from 1 to 5, how do you rate your stress level ?",
+		       				"choices": [1,2,3,4,5] } ]
+			}		
+	# check survey does not exist 
+	x = backend.get_survey(DB_path, survey_id)
+	assert x == [], repr(x)
+	# create survey
+	backend.create_survey(DB_path, survey)
+	# check survey was created
+	x = backend.get_survey(DB_path, survey_id)
+	assert x == repr(survey), repr(x)
+	# delete_survey(survey_id)
+	backend.delete_survey(DB_path, survey["survey_id"])
+	# check survey does not exist anymore
+	x = backend.get_survey(DB_path, survey_id)
+	assert x == [], repr(x)
+	os.remove(DB_path)	
+
+def test_get_survey():
+	backend.init(DB_path,override=True)
+	sleep_survey = { "survey_id": "sleep_2",
+	 				  "survey": [  { "id": "sleep_hours",
+	       							  "question": "how many hours have you slept yesterday?",
+		       						   "choices": ["<4", 4, 5, 6, 7, 8, ">8"]},
+		    						{ "id": "sleep_quality",
+		       						   "question": "In a scale from 1 to 5, how do you rate the quality of your sleep?",
+		       							"choices": [1,2,3,4,5] }  
+		       					]
+					}	 
+
+	stress_survey = { "survey_id": "stress_2",
+	 				  "survey": [  {"id": "stress_level",
+		       						"question": "In a scale from 1 to 5, how do you rate your stress level ?",
+		       						"choices": [1,2,3,4,5] }
+	                  			]
+					}	
+	#create survey
+	backend.create_survey(DB_path, sleep_survey)
+	backend.create_survey(DB_path, stress_survey)	
+	#check that the surveys were added to the surveys table
+	db = sqlite3.connect(DB_path)
+	cursor = db.cursor()
+	sql = ''' SELECT * FROM surveys WHERE survey_id=? '''
+	cursor.execute(sql, (sleep_survey["survey_id"],))
+	resp_sleep = cursor.fetchone()		
+	assert resp_sleep[1] == repr(sleep_survey)
+	#check that get_survey returns the same
+	resp_sleep_get = backend.get_survey(DB_path, sleep_survey["survey_id"])
+	assert resp_sleep_get == repr(sleep_survey), repr(resp_sleep_get)
+	cursor.execute(sql, (stress_survey["survey_id"],))
+	resp_stress = cursor.fetchone()		
+	assert resp_stress[1] == repr(stress_survey)
+	resp_stress_get = backend.get_survey(DB_path, stress_survey["survey_id"])
+	assert resp_stress_get == repr(stress_survey)
+	#remove test DB
+	os.remove(DB_path)
+
 def test_get_user():
 	#create DB
-	backend.init(DB_path,override=True)
-	#create user 
+	backend.init(DB_path,override=True)	
 	username="alice"
 	user_id="123"
 	backend.add_user(DB_path, user_id, username)			
@@ -396,24 +460,4 @@ def test_toggle_survey():
 	cursor.execute(sql,(user_id,survey_id))
 	resp =  cursor.fetchone()		
 	assert resp[backend.SURVEYS_ACTIVE] == 1
-
-# def test_update_user():
-# 	"""
-# 		assumes add_user() and get_user() are correct
-# 	"""
-# 	#create DB
-# 	backend.init(DB_path,override=True)
-# 	#create user 
-# 	username="alice"
-# 	user_id="123"	
-# 	backend.add_user(DB_path, user_id, username)			
-# 	user = backend.get_user(DB_path, user_id)
-# 	#check initial values
-# 	assert user[backend.USER_NAME] == username	
-# 	#update username
-# 	nu_username="bob"
-# 	backend.update_user(DB_path, user_id,new_username=nu_username)
-# 	user = backend.get_user(DB_path, user_id)	
-# 	assert user[backend.USER_NAME] == nu_username 		   
-# 	#remove test DB
-# 	os.remove(DB_path)
+	

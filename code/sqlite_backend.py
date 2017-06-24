@@ -105,7 +105,8 @@ def add_user(DB_path, user_id, username):
 def create_survey(DB_path, survey):
 	table_name = "survey_"+survey["survey_id"]	
 	fields = ["user_id","timestamp"] + [q["id"] for q in survey["survey"] ]
-	print "[created survey table: {} | columns: ]".format(table_name,repr(fields))	
+
+	print "[created survey table: {} | columns: {}]".format(table_name,repr(fields))	
 	__put(DB_path, "surveys", {"survey_id":survey["survey_id"],"conf":repr(survey)})
 	__create_table(DB_path, table_name, fields)
 
@@ -113,13 +114,27 @@ def delete_user(DB_path, user_id):
 	sql = '''DELETE FROM users WHERE user_id=?'''
 	__update(DB_path, sql, (user_id,))		
 
+def delete_survey(DB_path, survey_id):
+	sql = '''DELETE FROM surveys WHERE survey_id=?'''
+	__update(DB_path, sql, (survey_id,))		
+
 def get_user(DB_path, user_id):
 	sql = '''SELECT * FROM users WHERE user_id=?'''	
-	return __get(DB_path, sql,(user_id,))[0]
+	x = __get(DB_path, sql,(user_id,))
+	if len(x) > 0:
+		return x[0]
+	return []
 
 def get_report(DB_path, user_id, survey_id):
 	sql = '''SELECT * FROM {} WHERE user_id=? order by timestamp DESC'''.format("survey_"+survey_id)	
 	return __get(DB_path, sql,(user_id,))
+
+def get_survey(DB_path, survey_id):
+	sql = '''SELECT conf FROM surveys WHERE survey_id=? '''
+	x = __get(DB_path, sql,(survey_id,))
+	if len(x) > 0:
+		return x[0][0]
+	return []
 
 def init(DB_path, override=False):
 	"""
