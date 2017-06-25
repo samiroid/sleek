@@ -21,14 +21,14 @@ def __create_DB(DB_path, override=False):
 	"""
 		Create database with tables 'users' and 'surveys'
 	"""
-	USERS =        ''' CREATE TABLE users(user_id TEXT PRIMARY KEY, username TEXT, 
+	USERS =        ''' CREATE TABLE users(id TEXT PRIMARY KEY, username TEXT, 
 										  active INTEGER DEFAULT 1) '''
 	
 	USER_SURVEYS = ''' CREATE TABLE user_surveys(user_id TEXT, survey_id TEXT, 
 										         am_check TEXT, pm_check TEXT, active INTEGER DEFAULT 1, 
 										         PRIMARY KEY(user_id, survey_id))  '''
 
-	SURVEYS = ''' CREATE TABLE surveys(survey_id TEXT, conf TEXT)  '''
+	SURVEYS = ''' CREATE TABLE surveys(id TEXT, survey TEXT)  '''
 
 	db = sqlite3.connect(DB_path)
 	cursor = db.cursor()	
@@ -43,6 +43,7 @@ def __create_DB(DB_path, override=False):
 	cursor.execute(SURVEYS)
 	db.commit()
 	db.close()	
+	print "[created backend @ {}]".format(DB_path)		
 
 def __create_table(DB_path, table_name, fields, override=False):	
 	db = sqlite3.connect(DB_path)
@@ -99,7 +100,7 @@ def __table_exists(DB_path, table_name):
 	return t == 1
 
 def add_user(DB_path, user_id, username):
-	row = {"user_id":user_id,"username":username}
+	row = {"id":user_id,"username":username}
 	__put(DB_path, "users", row)
 
 def create_survey(DB_path, survey):
@@ -107,19 +108,19 @@ def create_survey(DB_path, survey):
 	fields = ["user_id","timestamp"] + [q["id"] for q in survey["survey"] ]
 
 	print "[created survey table: {} | columns: {}]".format(table_name,repr(fields))	
-	__put(DB_path, "surveys", {"survey_id":survey["survey_id"],"conf":repr(survey)})
+	__put(DB_path, "surveys", {"id":survey["survey_id"],"survey":repr(survey)})
 	__create_table(DB_path, table_name, fields)
 
 def delete_user(DB_path, user_id):
-	sql = '''DELETE FROM users WHERE user_id=?'''
+	sql = '''DELETE FROM users WHERE id=?'''
 	__update(DB_path, sql, (user_id,))		
 
 def delete_survey(DB_path, survey_id):
-	sql = '''DELETE FROM surveys WHERE survey_id=?'''
+	sql = '''DELETE FROM surveys WHERE id=?'''
 	__update(DB_path, sql, (survey_id,))		
 
 def get_user(DB_path, user_id):
-	sql = '''SELECT * FROM users WHERE user_id=?'''	
+	sql = '''SELECT * FROM users WHERE id=?'''	
 	x = __get(DB_path, sql,(user_id,))
 	if len(x) > 0:
 		return x[0]
@@ -130,7 +131,7 @@ def get_report(DB_path, user_id, survey_id):
 	return __get(DB_path, sql,(user_id,))
 
 def get_survey(DB_path, survey_id):
-	sql = '''SELECT conf FROM surveys WHERE survey_id=? '''
+	sql = '''SELECT survey FROM surveys WHERE id=? '''
 	x = __get(DB_path, sql,(survey_id,))
 	if len(x) > 0:
 		return x[0][0]
@@ -145,15 +146,19 @@ def init(DB_path, override=False):
 	else:
 		#create only if there is not a users table already
 		if not __table_exists(DB_path, 'users'):		
-			__create_DB(DB_path)			
+			__create_DB(DB_path)	
+		else:
+			print "[backend @ {} already exists]".format(DB_path)		
 
-def join_survey(DB_path, user_id, survey_id, am_check, pm_check):
+def join_survey(DB_path, user_id, survey_id, am_check=9, pm_check=4):
+	assert am_check <= 12 and am_check > 0
+	assert pm_check <= 12 and pm_check > 0
 	if not __table_exists(DB_path, "survey_"+survey_id):
 		raise RuntimeError("survey {} not found".format(survey_id))
 	row = {"user_id":user_id, "survey_id":survey_id, "am_check":am_check, "pm_check":pm_check}
 	try:		
 		__put(DB_path, "user_surveys", row)
-	except sqlite3.IntegrityError:
+	except sqlite3.IntegrityError:				
 		raise RuntimeError("user {} already joined survey {}".format(user_id, survey_id))
 
 def list_surveys(DB_path,user_id=None):	
@@ -168,11 +173,13 @@ def save_response(DB_path, survey_id, response):
 	__put(DB_path, "survey_"+survey_id, response)	
 
 def schedule_survey(DB_path, user_id, survey_id, am_check, pm_check):
+	assert am_check <= 12 and am_check > 0
+	assert pm_check <= 12 and pm_check > 0
 	sql = '''UPDATE user_surveys SET am_check=?, pm_check=? WHERE user_id=? AND survey_id=?'''
 	__update(DB_path, sql, (am_check, pm_check, user_id, survey_id))	
 
 def toggle_user(DB_path, user_id, active=True):
-	sql = '''UPDATE users SET active=? WHERE user_id=?'''
+	sql = '''UPDATE users SET active=? WHERE id=?'''
 	__update(DB_path, sql, (active, user_id))	
 
 def toggle_survey(DB_path, user_id, survey_id, active=True):

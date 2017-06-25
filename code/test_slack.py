@@ -40,6 +40,9 @@ def test_chatBot():
 	assert bot2.announce() in cfg["announce"]
 	os.remove(DB_path)
 
+def test_available_surveys():
+	assert True == False
+	
 def test_chat():
 	assert True == False
 	

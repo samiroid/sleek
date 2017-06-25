@@ -15,9 +15,9 @@ def test_get():
 	backend.init(DB_path,override=True)
 	assert os.path.isfile(DB_path)
 	#insert a few rows into the users table
-	backend.__put(DB_path, "users", {"user_id":"1","username":"user 1"})
-	backend.__put(DB_path, "users", {"user_id":"2","username":"user 2"})
-	backend.__put(DB_path, "users", {"user_id":"3","username":"user 3"})
+	backend.__put(DB_path, "users", {"id":"1","username":"user 1"})
+	backend.__put(DB_path, "users", {"id":"2","username":"user 2"})
+	backend.__put(DB_path, "users", {"id":"3","username":"user 3"})
 	#make sure rows were inserted
 	sql = '''SELECT * FROM users '''
 	db = sqlite3.connect(DB_path)
@@ -31,14 +31,14 @@ def test_get():
 	resp_2 = backend.__get(DB_path, sql, None)
 	assert resp == resp_2
 	#check if __get returns the same data (with params)
-	sql = ''' SELECT * FROM users WHERE user_id=? '''
+	sql = ''' SELECT * FROM users WHERE id=? '''
 	resp_3 = backend.__get(DB_path, sql, ["1"])
 	assert resp_3[0] == resp[0]
 	os.remove(DB_path)
 
 def test_table_exists():	
 	assert not backend.__table_exists(DB_path, "users")	
-	USERS = ''' CREATE TABLE users(user_id TEXT PRIMARY KEY, username TEXT, active INTEGER DEFAULT 1) '''
+	USERS = ''' CREATE TABLE users(id TEXT PRIMARY KEY, username TEXT, active INTEGER DEFAULT 1) '''
 	db = sqlite3.connect(DB_path)
 	cursor = db.cursor()		
 	cursor.execute(USERS)		
@@ -63,7 +63,7 @@ def test_add_user():
 	#check that username_1 was correctly created
 	db = sqlite3.connect(DB_path)
 	cursor = db.cursor()
-	sql = ''' SELECT * FROM users WHERE user_id=? '''
+	sql = ''' SELECT * FROM users WHERE id=? '''
 	cursor.execute(sql, (user_id_1,))
 	resp = cursor.fetchone()	
 	assert resp[backend.USER_ID]   == user_id_1 and \
@@ -128,7 +128,7 @@ def test_create_survey():
 	#check that the surveys were added to the surveys table
 	db = sqlite3.connect(DB_path)
 	cursor = db.cursor()
-	sql = ''' SELECT * FROM surveys WHERE survey_id=? '''
+	sql = ''' SELECT * FROM surveys WHERE id=? '''
 	cursor.execute(sql, (sleep_survey["survey_id"],))
 	resp_sleep = cursor.fetchone()		
 	assert resp_sleep[1] == repr(sleep_survey)
@@ -148,7 +148,7 @@ def test_delete_user():
 	#check that user was correctly created
 	db = sqlite3.connect(DB_path)
 	cursor = db.cursor()
-	sql = ''' SELECT * FROM users WHERE user_id=? '''
+	sql = ''' SELECT * FROM users WHERE id=? '''
 	cursor.execute(sql, (user_id,))
 	resp = cursor.fetchone()	
 	assert resp[backend.USER_ID]   == user_id and \
@@ -211,7 +211,7 @@ def test_get_survey():
 	#check that the surveys were added to the surveys table
 	db = sqlite3.connect(DB_path)
 	cursor = db.cursor()
-	sql = ''' SELECT * FROM surveys WHERE survey_id=? '''
+	sql = ''' SELECT * FROM surveys WHERE id=? '''
 	cursor.execute(sql, (sleep_survey["survey_id"],))
 	resp_sleep = cursor.fetchone()		
 	assert resp_sleep[1] == repr(sleep_survey)
@@ -235,7 +235,7 @@ def test_get_user():
 	#check that user was correctly created
 	db = sqlite3.connect(DB_path)
 	cursor = db.cursor()
-	sql = ''' SELECT * FROM users WHERE user_id=? '''
+	sql = ''' SELECT * FROM users WHERE id=? '''
 	cursor.execute(sql, (user_id,))
 	resp = cursor.fetchone()	
 	assert resp[backend.USER_ID]   == user_id and \
@@ -256,9 +256,9 @@ def test_init():
 	backend.init(DB_path,override=True)
 	assert os.path.isfile(DB_path)
 	#insert a few rows into the users table
-	backend.__put(DB_path, "users", {"user_id":"1","username":"user 1"})
-	backend.__put(DB_path, "users", {"user_id":"2","username":"user 2"})
-	backend.__put(DB_path, "users", {"user_id":"3","username":"user 3"})
+	backend.__put(DB_path, "users", {"id":"1","username":"user 1"})
+	backend.__put(DB_path, "users", {"id":"2","username":"user 2"})
+	backend.__put(DB_path, "users", {"id":"3","username":"user 3"})
 	#make sure rows are preserved
 	sql = '''SELECT * FROM users '''
 	db = sqlite3.connect(DB_path)
@@ -348,8 +348,8 @@ def test_join_survey():
 
 	os.remove(DB_path)		
 
-# def test_list_surveys():
-# 	assert True == False
+# # def test_list_surveys():
+# # 	assert True == False
 
 def test_save_response():
 	backend.init(DB_path,override=True)
@@ -460,4 +460,4 @@ def test_toggle_survey():
 	cursor.execute(sql,(user_id,survey_id))
 	resp =  cursor.fetchone()		
 	assert resp[backend.SURVEYS_ACTIVE] == 1
-	
+# 	
