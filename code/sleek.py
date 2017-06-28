@@ -20,11 +20,9 @@ class Sleek(object):
 		self.__help = None
 		self.__announce = None
 
-		if cfg is None:
-			print "[starting sleek with default confs]"
+		if cfg is None:			
 			self.__load_cfg(Sleek.default_cfg)
-		else:
-			print "[loading confs]"
+		else:			
 			self.__load_cfg(cfg)
 
 	def __load_cfg(self, cfg):
@@ -81,11 +79,13 @@ class Sleek(object):
 	def nack(self):
 		return self.__get_rand(self.__nacks)
 
-	def chat(self, text_input, context):		
+	def chat(self, tokens, context):		
 		#TODO: this is kinda hacky :)
-		if len(set(self.__greets) & set(text_input.split())) > 0:		
+		# if len(set(self.__greets) & set(tokens.split())) > 0:		
+		# 	return self.greet()
+		if tokens[0] in self.__greets:		
 			return self.greet()
-		elif "help" in text_input:
+		elif "help" in tokens:
 			return self.help()
 		else:
 			return self.nack()	
