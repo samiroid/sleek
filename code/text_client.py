@@ -5,7 +5,6 @@ import sleek_4_slack
 import os
 from ipdb import set_trace
 
-
 def load_surveys(sleek_instance, survey_path):
 	"""
 		Loads surveys in batch mode
