@@ -249,7 +249,7 @@ class Sleek4Slack(Sleek):
 		   				try:
 			   				reply = self.chat(text, context)
 		   				except Exception as e:	   					
-		   					reply = "[FATAL ERROR: {}]".format(e)
+		   					reply = "```[FATAL ERROR: {}]```".format(e)
 
 		   		if reply is None: continue				   	
    				#a reply can be either a message or a list thereof
