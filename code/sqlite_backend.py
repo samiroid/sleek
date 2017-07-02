@@ -5,7 +5,7 @@
 import json
 import os
 import sqlite3
-#from ipdb import set_trace
+from ipdb import set_trace
 
 #user table columns
 USER_ID = 0
@@ -56,7 +56,7 @@ def __create_table(DB_path, table_name, fields, override=False):
 	if override:
 		 drop = ''' DROP TABLE IF EXISTS {} '''.format(table_name)
 		 cursor.execute(drop)	
-	sql_fields = 'ID INTEGER PRIMARY KEY AUTOINCREMENT, ' + ' TEXT, '.join(fields) + ' TEXT' + ', COMPLETE INTEGER DEFAULT 0'
+	sql_fields = 'ID INTEGER PRIMARY KEY AUTOINCREMENT, ' + ' TEXT, '.join(fields) + ' TEXT' 
  	create = ''' CREATE TABLE {}({}) '''.format(table_name, sql_fields)
 	#create table		
 	cursor.execute(create)	
@@ -86,14 +86,14 @@ def __update(DB_path, sql, params):
 def __put(DB_path, table_name, row):
 	"""
 		row is a dictionary: {column: value}
-	"""
+	"""	
 	db = sqlite3.connect(DB_path)
 	cursor = db.cursor()		
 	keys = row.keys()
 	values = row.values()
 	sql_keys = ','.join(keys)
 	sql_values =  ('?,'*len(values)).strip(',')
-	sql_insert = ''' INSERT INTO {}({}) VALUES({}) '''.format(table_name,sql_keys,sql_values)
+	sql_insert = ''' INSERT INTO {}({}) VALUES({}) '''.format(table_name,sql_keys,sql_values)	
 	cursor.execute(sql_insert, values)		
 	rowid = cursor.lastrowid
 	db.commit()
@@ -114,14 +114,14 @@ def add_user(DB_path, user_id):
 
 def create_survey(DB_path, survey):
 	table_name = "survey_"+survey["survey_id"]	
-	fields = ["user_id","timestamp"] + [q["id"] for q in survey["survey"] ]	
+	fields = ["user_id","ts"] + [q["id"] for q in survey["survey"] ]	
 	try:
 		__put(DB_path, "surveys", {"id":survey["survey_id"],"survey":json.dumps(survey)})
 	except sqlite3.IntegrityError: 
 		raise RuntimeError("survey already exists")
 	__create_table(DB_path, table_name, fields)
 
-def delete_responses(DB_path, user_id, survey_id):
+def delete_answers(DB_path, user_id, survey_id):
 	sql = '''DELETE FROM survey_{} WHERE user_id=?'''.format(survey_id)
 	return __update(DB_path, sql, (user_id,)) > 0
 
@@ -144,7 +144,7 @@ def get_report(DB_path, user_id, survey_id):
 	survey_table = "survey_{}".format(survey_id)
 	if not __table_exists(DB_path, survey_table):
 		raise RuntimeError("survey does not exist")
-	sql = '''SELECT * FROM {} WHERE user_id=? AND complete=1 order by timestamp DESC'''.format(survey_table)
+	sql = '''SELECT * FROM {} WHERE user_id=? order by ts DESC'''.format(survey_table)
 	return __get(DB_path, sql,(user_id,))
 
 def get_response(DB_path, user_id, survey_id, response_id):
@@ -181,8 +181,7 @@ def list_surveys(DB_path,user_id=None):
 		sql = ''' SELECT * FROM user_surveys WHERE user_id=? AND active=1'''
 		return __get(DB_path, sql,(user_id,))
 
-def new_response(DB_path, user_id, survey_id, timestamp):
-	return __put(DB_path, "survey_"+survey_id, {"user_id":user_id, "timestamp":timestamp}) 
+
 
 def schedule_survey(DB_path, user_id, survey_id, am_check, pm_check):
 	sql = '''UPDATE user_surveys SET am_check=?, pm_check=? WHERE user_id=? AND survey_id=?'''
@@ -196,20 +195,33 @@ def toggle_survey(DB_path, user_id, survey_id, active=True):
 	sql = '''UPDATE user_surveys SET active=? WHERE user_id=? AND survey_id=?'''
 	return __update(DB_path, sql, (active, user_id, survey_id)) > 0
 
-def close_response(DB_path, user_id, survey_id, response_id):
-	sql = '''UPDATE survey_{} SET complete=1 WHERE user_id=? AND id=? '''.format(survey_id)
-	return __update(DB_path, sql, (user_id, response_id)) > 0
-
-def save_response(DB_path, survey_id, user_id, response_id, update):
+def save_response(DB_path, user_id, survey_id, ts, response):
 	"""
 		row is a dictionary: {column: value}
 	"""
-	db = sqlite3.connect(DB_path)
-	cursor = db.cursor()		
-	fields = update.keys()
-	values = update.values()
-	update_fields = ','.join([k+"=?" for k in fields]).strip(',')	
-	sql_insert = ''' UPDATE survey_{} SET {} WHERE user_id=? and id=? '''.format(survey_id,update_fields)
-	cursor.execute(sql_insert, values+[user_id,response_id])		
-	db.commit()
-	db.close()
+	response["user_id"] = user_id
+	response["ts"] = ts
+	survey_table = "survey_{}".format(survey_id)
+	return __put(DB_path, survey_table, response)
+
+
+# def new_response(DB_path, user_id, survey_id, timestamp):
+# 	return __put(DB_path, "survey_"+survey_id, {"user_id":user_id, "timestamp":timestamp}) 
+
+# def close_response(DB_path, user_id, survey_id, response_id):
+# 	sql = '''UPDATE survey_{} SET complete=1 WHERE user_id=? AND id=? '''.format(survey_id)
+# 	return __update(DB_path, sql, (user_id, response_id)) > 0
+
+# def save_response(DB_path, survey_id, user_id, response_id, update):
+# 	"""
+# 		row is a dictionary: {column: value}
+# 	"""
+# 	db = sqlite3.connect(DB_path)
+# 	cursor = db.cursor()		
+# 	fields = update.keys()
+# 	values = update.values()
+# 	update_fields = ','.join([k+"=?" for k in fields]).strip(',')	
+# 	sql_insert = ''' UPDATE survey_{} SET {} WHERE user_id=? and id=? '''.format(survey_id,update_fields)
+# 	cursor.execute(sql_insert, values+[user_id,response_id])		
+# 	db.commit()
+# 	db.close()
