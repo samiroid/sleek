@@ -1,0 +1,5 @@
+{ "survey_id": "stress",
+  "survey": [  {"id": "stress_level",
+				"question": "In a scale from 1 to 5, how do you rate your stress level ?",
+				"choices": [1,2,3,4,5] } ]
+}	
