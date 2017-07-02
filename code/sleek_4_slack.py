@@ -95,16 +95,17 @@ class Sleek4Slack(Sleek):
 		
 		return out.format(survey_id.upper(), repr(df))	
 
-	def __display_list(self, sl):
-		active=">*{}*"
+	def __display_survey_list(self, user_surveys, other_surveys):
+		active=">*{}*\t`{}`\t`{}`"
 		inactive="~{}~"
-		x = [active.format(s) if a else inactive.format(s) for s, a in sl.items()]
-		out = "*Your Surveys*\n{}"
-		return out.format("\n".join(x))
+		us = [active.format(s,r[0],r[1]) for s, r in user_surveys.items()]
+		ot = [inactive.format(s) for s in other_surveys]
+		display = "*Your Surveys*\n{}\n{}"
+		return display.format("\n".join(us),"\n".join(ot))
 
 
 	def __get_time(self, t, period):
-		assert period in ["AM","PM"]
+		assert period in ["am","pm"]
 		try:
 			assert period in t
 			nt = str(datetime.strptime(t , '%I:%M%p').time())
@@ -115,7 +116,7 @@ class Sleek4Slack(Sleek):
 			return None, "{} time is missing".format(period)
 	
 	def __list_surveys(self, user_id):				
-		us = backend.list_surveys(self.DB_path, user_id)	
+		us = backend.list_surveys(self.DB_path, user_id)		
 		user_surveys  = {x[1]:None for x in us}				
 		surveys = {s:True if s in user_surveys else False for s in self.current_surveys.keys()}				
 		return surveys	
@@ -141,9 +142,13 @@ class Sleek4Slack(Sleek):
 	###### ------ CORE METHODS
 	def chat(self, text, context):
 		user_id = context["user_id"]
-		tokens = text.split()
+		tokens = text.encode("utf-8").split()
 		action = tokens[0]
-		print "[user: {}| action: {}({})]".format(user_id, action, ','.join(tokens[1:]))				
+		params =  ','.join(tokens[1:])
+		try:	
+			print "[user: {}| action: {}({})]".format(user_id, action, params)				
+		except UnicodeDecodeError:
+			set_trace()
 		
 		#Actions
 		# ---- DELETE DATA ----
@@ -163,7 +168,7 @@ class Sleek4Slack(Sleek):
 
 		# ---- LIST SURVEYS ----
 		elif action == "list": 
-			return self.list_surveys(tokens, context)						
+			return self.show_surveys(tokens, context)						
 
 		# ---- SHOW REPORT ----
 		elif action == "report":					
@@ -202,7 +207,7 @@ class Sleek4Slack(Sleek):
 			verbose == True, print all the events of type "message"
 			dbg == True, allow unhandled exceptions
 		"""
-		hat_bot = "<@{}>".format(bot_id) 
+		hat_bot = "<@{}>".format(bot_id).lower() 
 		while True:		
 			reply = None	
 			for output in self.slack_client.rtm_read():		
@@ -212,7 +217,7 @@ class Sleek4Slack(Sleek):
 					pprint.pprint(output)
 					#set_trace()	
 				try:
-					text = output['text']
+					text = output['text'].lower()
 					ts = output['ts']
 					channel = output['channel']
 				   	user = output['user']		   	
@@ -300,7 +305,9 @@ class Sleek4Slack(Sleek):
 
 	def delete_answers(self, tokens, context):		
 		user_id = context["user_id"]				
-		survey_id = tokens[1]					
+		survey_id = tokens[1]	
+		#check if survey exists
+		if not survey_id in self.current_surveys: return status.SURVEY_UNKNOWN.format(survey_id.upper())
 		r = backend.delete_answers(self.DB_path, user_id, survey_id)
 		if r > 0: return status.ANSWERS_DELETE_OK.format(survey_id.upper())
 		else:	  return status.ANSWERS_DELETE_FAIL.format(survey_id.upper())
@@ -324,9 +331,9 @@ class Sleek4Slack(Sleek):
 		err = ""		
 		survey_id = tokens[1]						
 		#validate schedule
-		am_check, err = self.__get_time(tokens[2], "AM")		
+		am_check, err = self.__get_time(tokens[2], "am")		
 		if am_check is None: return err
-		pm_check, err = self.__get_time(tokens[3], "PM")		
+		pm_check, err = self.__get_time(tokens[3], "pm")		
 		if pm_check is None: return err		
 		#check if survey exists
 		if not survey_id in self.current_surveys: return status.SURVEY_UNKNOWN.format(survey_id.upper())
@@ -362,9 +369,13 @@ class Sleek4Slack(Sleek):
 		
 		return status.SURVEY_LEAVE_OK.format(survey_id.upper())
 
-	def list_surveys(self, tokens, context):	
-		s = self.__list_surveys(context["user_id"])
-		return self.__display_list(s)
+	def show_surveys(self, tokens, context):	
+		user_id = context["user_id"]
+		us = backend.list_surveys(self.DB_path, user_id)		
+		user_surveys  = {x[1]:(x[2],x[3]) for x in us}
+		other_surveys = [s for s in self.current_surveys.keys() if s not in user_surveys]	
+
+		return self.__display_survey_list(user_surveys,other_surveys)
 
 	def report(self, tokens, context):
 		user_id = context["user_id"]
@@ -381,10 +392,10 @@ class Sleek4Slack(Sleek):
 		user_id = context["user_id"]				
 		err = ""		
 		survey_id = tokens[1]						
-		#validate schedule
-		am_check, err = self.__get_time(tokens[2], "AM")		
+		#validate schedule		
+		am_check, err = self.__get_time(tokens[2], "am")		
 		if am_check is None: return err
-		pm_check, err = self.__get_time(tokens[3], "PM")		
+		pm_check, err = self.__get_time(tokens[3], "pm")		
 		if pm_check is None: return err				
 		try:				
 			backend.schedule_survey(self.DB_path, user_id, survey_id, am_check, pm_check)

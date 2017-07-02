@@ -52,9 +52,11 @@ def get_parser():
     parser.add_argument('-bot_id', type=str, help="Sleek User ID @Slack")
     parser.add_argument('-db', type=str, help="path to the backend DB")
     parser.add_argument('-init', action="store_true", help="Initializes the backend")
-    parser.add_argument('-dbg', action="store_true", help="Initializes the backend")
+    parser.add_argument('-dbg', action="store_true", help="Debug Mode; Unhandled exceptions explode")
+    parser.add_argument('-verbose', action="store_true", help="Verbose Mode")
     parser.add_argument('-get_bot_id', type=str, nargs=2, help="get bot id [TOKEN_API] [BOT_USER_NAME]")
     parser.add_argument('-api_token', type=str, help="token api")
+    
 
     return parser
 
@@ -79,4 +81,4 @@ if __name__=="__main__":
 			api_token = args.connect[0]
 			bot_id    = args.connect[1]
 			sleek_client.connect(api_token, greet=True)
-			sleek_client.listen(bot_id, dbg=args.dbg)
+			sleek_client.listen(bot_id, dbg=args.dbg, verbose=args.verbose)
