@@ -132,7 +132,7 @@ def test_create_survey():
 	#remove test DB
 	os.remove(DB_path)
 
-def test_delete_responses():
+def test_delete_answers():
 	backend.init(DB_path)
 	sleep_survey = { "survey_id": "sleep",
 	 				  "survey": [  { "id": "sleep_hours",
@@ -148,24 +148,19 @@ def test_delete_responses():
 	user_id = "u1"
 	survey_id="sleep"	
 	#create answers
-	resp_id_1 = backend.new_response(DB_path, user_id, survey_id, 200)	
-	backend.save_response(DB_path, survey_id, user_id, resp_id_1, {"sleep_hours":9,"sleep_quality":5})
-	backend.close_response(DB_path, user_id, survey_id, resp_id_1)	
-
-	resp_id_2 = backend.new_response(DB_path, user_id, survey_id, 300)	
-	backend.save_response(DB_path, survey_id, user_id, resp_id_2, {"sleep_hours":8,"sleep_quality":4})
-	backend.close_response(DB_path, user_id, survey_id, resp_id_2)	
-
-	resp_id_3 = backend.new_response(DB_path, user_id, survey_id, 400)	
-	backend.save_response(DB_path, survey_id, user_id, resp_id_3, {"sleep_hours":7,"sleep_quality":3})
-	backend.close_response(DB_path, user_id, survey_id, resp_id_3)	
+	#DB_path, user_id, survey_id, ts, response
+	
+	backend.save_response(DB_path, user_id, survey_id, 200, {"sleep_hours":9,"sleep_quality":5})
+	backend.save_response(DB_path, user_id, survey_id, 300, {"sleep_hours":8,"sleep_quality":4})
+	backend.save_response(DB_path, user_id, survey_id, 400, {"sleep_hours":7,"sleep_quality":3})	
+	
 	#check answers ok
 	report = backend.get_report(DB_path, user_id, survey_id)	
 	print "rep", report
-	assert report[0] == (resp_id_3, user_id, u'400','7','3', 1)
-	assert report[1] == (resp_id_2, user_id, u'300','8','4', 1)
-	assert report[2] == (resp_id_1, user_id, u'200','9','5', 1)	
-	backend.delete_responses(DB_path, user_id, survey_id)
+	assert report[0] == (3, user_id, u'400','7','3')
+	assert report[1] == (2, user_id, u'300','8','4')
+	assert report[2] == (1, user_id, u'200','9','5')	
+	backend.delete_answers(DB_path, user_id, survey_id)
 	report = backend.get_report(DB_path, user_id, survey_id)	
 	assert report == []
 	#remove test DB
@@ -276,7 +271,7 @@ def test_insert_row():
 	sql_user_surveys = '''SELECT * FROM user_surveys '''
 	cursor.execute(sql_user_surveys)
 	resp_user_survey =  cursor.fetchone()	
-	assert resp_user_survey == (u'silvio', u'some_survey', u'am',u'pm', 1) 
+	assert resp_user_survey == (u'silvio', u'some_survey', u'am',u'pm') 
 	
 	os.remove(DB_path)		
 
@@ -304,25 +299,23 @@ def test_join_survey():
 	cursor.execute(sql,(user_id, survey["survey_id"]))
 	resp =  cursor.fetchone()	
 	assert resp is None
-	#user joins survey
-	am_check = "10"
-	pm_check = "5"
-	backend.join_survey(DB_path, user_id, survey["survey_id"], am_check, pm_check )
+	#user joins survey	
+	backend.join_survey(DB_path, user_id, survey["survey_id"])
 	#check user joined survey
 	cursor.execute(sql,(user_id, survey["survey_id"]))
 	resp =  cursor.fetchone()	
 	assert resp[0] == user_id and \
 		   resp[1] == survey["survey_id"] and \
-		   resp[2] == am_check and \
-		   resp[3] == pm_check
+		   resp[2] == None and \
+		   resp[3] == None 
 
 	#user joins survey that does not exist
 	with pytest.raises(RuntimeError):
-		backend.join_survey(DB_path, user_id, "random_survey", am_check, pm_check )
+		backend.join_survey(DB_path, user_id, "random_survey")
 
 	#user joins a survey that was already joined
 	with pytest.raises(RuntimeError):
-		backend.join_survey(DB_path, user_id, survey["survey_id"], am_check, pm_check )
+		backend.join_survey(DB_path, user_id, survey["survey_id"])
 
 	os.remove(DB_path)		
 
@@ -366,32 +359,6 @@ def test_list_surveys():
 	resp = backend.list_surveys(DB_path,user_id=user_id)
 	assert resp[0][1] == "sleep"
 
-def test_new_response():
-	backend.init(DB_path)
-	sleep_survey = { "survey_id": "sleep",
-	 				  "survey": [  { "id": "sleep_hours",
-	       							  "question": "how many hours have you slept yesterday?",
-		       						   "choices": ["<4", 4, 5, 6, 7, 8, ">8"]},
-		    						{ "id": "sleep_quality",
-		       						   "question": "In a scale from 1 to 5, how do you rate the quality of your sleep?",
-		       							"choices": [1,2,3,4,5] }  
-		       					]
-					}
-	survey_id = "sleep"
-	backend.create_survey(DB_path, sleep_survey)			
-	user_id="u1"
-	resp_id_1=backend.new_response(DB_path, user_id, survey_id, 100)
-	resp_id_2=backend.new_response(DB_path, user_id, survey_id, 200)	
-	sql = '''SELECT * FROM survey_sleep '''
-	db = sqlite3.connect(DB_path)
-	cursor = db.cursor()	
-	cursor.execute(sql)
-	resp =  cursor.fetchall()	
-	assert resp[0] == (resp_id_1, u'u1', u'100', None, None, 0)
-	assert resp[1] == (resp_id_2, u'u1', u'200', None, None, 0)
-	#remove test DB
-	os.remove(DB_path)
-
 def test_save_response():
 	backend.init(DB_path)
 	sleep_survey = { "survey_id": "sleep",
@@ -405,43 +372,15 @@ def test_save_response():
 					}
 	survey_id = "sleep"
 	user_id = "u1"
-	backend.create_survey(DB_path, sleep_survey)		
-	resp_id_1 = backend.new_response(DB_path, user_id, survey_id, 100)
+	backend.create_survey(DB_path, sleep_survey)			
 	sql = '''SELECT * FROM survey_sleep WHERE user_id=? and id=?'''	
 	db = sqlite3.connect(DB_path)
-	cursor = db.cursor()	
-	
-	cursor.execute(sql,(user_id, resp_id_1))
+	cursor = db.cursor()		
+	#save
+	resp_id = backend.save_response(DB_path, user_id, survey_id, 200, {"sleep_hours":9,"sleep_quality":5})
+	cursor.execute(sql,(user_id, resp_id))
 	resp =  cursor.fetchall()	
-	assert resp[0] == (resp_id_1, user_id, u'100', None, None, 0)
-	
-	# -- Save responses one at the time
-	backend.save_response(DB_path, survey_id, user_id, resp_id_1, {"sleep_hours":4})
-	cursor.execute(sql,(user_id, resp_id_1))
-	resp =  cursor.fetchall()	
-	assert resp[0] == (resp_id_1, user_id, u'100', '4', None, 0)
-
-	backend.save_response(DB_path, survey_id, user_id, resp_id_1, {"sleep_quality":2})
-	cursor.execute(sql,(user_id, resp_id_1))
-	resp =  cursor.fetchall()	
-	assert resp[0] == (resp_id_1, user_id, u'100', '4', '2', 0)	
-	#close_response
-	backend.close_response(DB_path, user_id, survey_id, resp_id_1)
-	cursor.execute(sql,(user_id, resp_id_1))
-	resp =  cursor.fetchall()	
-	assert resp[0] == (resp_id_1, user_id, u'100', '4', '2', 1)	
-
-	# -- Save all the responses at once	
-	resp_id_2 = backend.new_response(DB_path, user_id, survey_id, 200)
-	backend.save_response(DB_path, survey_id, user_id, resp_id_2, {"sleep_hours":9,"sleep_quality":5})
-	cursor.execute(sql,(user_id, resp_id_2))
-	resp =  cursor.fetchall()	
-	assert resp[0] == (resp_id_2, user_id, u'200','9', '5', 0)
-	
-	backend.close_response(DB_path, user_id, survey_id, resp_id_2)	
-	cursor.execute(sql,(user_id, resp_id_2))
-	resp =  cursor.fetchall()	
-	assert resp[0] == (resp_id_2, user_id, u'200', '9', '5', 1)
+	assert resp[0] == (resp_id, user_id, u'200','9', '5')
 	#remove test DB
 	os.remove(DB_path)
 
@@ -459,23 +398,15 @@ def test_get_report():
 	
 	backend.create_survey(DB_path, sleep_survey)		
 	user_id = "u1"
-	survey_id="sleep"	
-	resp_id_1 = backend.new_response(DB_path, user_id, survey_id, 200)
-	backend.save_response(DB_path, survey_id, user_id, resp_id_1, {"sleep_hours":9,"sleep_quality":5})
-	backend.close_response(DB_path, user_id, survey_id, resp_id_1)	
-
-	resp_id_2 = backend.new_response(DB_path, user_id, survey_id, 300)
-	backend.save_response(DB_path, survey_id, user_id, resp_id_2, {"sleep_hours":8,"sleep_quality":4})
-	backend.close_response(DB_path, user_id, survey_id, resp_id_2)	
-
-	resp_id_3 = backend.new_response(DB_path, user_id, survey_id, 400)
-	backend.save_response(DB_path, survey_id, user_id, resp_id_3, {"sleep_hours":7,"sleep_quality":3})
-	backend.close_response(DB_path, user_id, survey_id, resp_id_3)	
+	survey_id="sleep"		
+	resp_id_1 = backend.save_response(DB_path, user_id, survey_id, 200, {"sleep_hours":9,"sleep_quality":5})
+	resp_id_2 = backend.save_response(DB_path, user_id, survey_id, 300, {"sleep_hours":8,"sleep_quality":4})
+	resp_id_3 = backend.save_response(DB_path, user_id, survey_id, 400, {"sleep_hours":7,"sleep_quality":3})	
 
 	report = backend.get_report(DB_path, "u1", sleep_survey["survey_id"])	
-	assert report[0] == (resp_id_3, user_id, u'400','7','3', 1)		
-	assert report[1] == (resp_id_2, user_id, u'300','8','4', 1)
-	assert report[2] == (resp_id_1, user_id, u'200','9','5', 1)	
+	assert report[0] == (resp_id_3, user_id, u'400','7','3')		
+	assert report[1] == (resp_id_2, user_id, u'300','8','4')
+	assert report[2] == (resp_id_1, user_id, u'200','9','5')	
 	#remove test DB
 	os.remove(DB_path)
 
@@ -499,30 +430,5 @@ def test_toggle_user():
 	assert user[backend.USER_ACTIVE] == 1
 	os.remove(DB_path)
 
-def test_toggle_survey():
-	backend.init(DB_path)
-	#create user		
-	user_id="u1"
-	survey_id="some_survey"
-	survey = {"user_id":user_id,"survey_id":survey_id,"pm_check":"1","am_check":"2"}
-	backend.__put(DB_path, "user_surveys", survey)
-	#check it's *active*
-	sql = '''SELECT * FROM user_surveys WHERE user_id=? AND survey_id=?'''
-	db = sqlite3.connect(DB_path)
-	cursor = db.cursor()	
-	cursor.execute(sql,(user_id,survey_id))
-	resp =  cursor.fetchone()		
-	assert resp[backend.SURVEYS_ACTIVE] == 1
-	#disable user survey
-	backend.toggle_survey(DB_path, user_id, survey_id, active=False)
-	#check it's *inactive*
-	cursor.execute(sql,(user_id,survey_id))
-	resp =  cursor.fetchone()		
-	assert resp[backend.SURVEYS_ACTIVE] == 0
-	#enable user survey
-	backend.toggle_survey(DB_path, user_id, survey_id, active=True)
-	#check it's *active* again
-	cursor.execute(sql,(user_id,survey_id))
-	resp =  cursor.fetchone()		
-	assert resp[backend.SURVEYS_ACTIVE] == 1
+
 # 	

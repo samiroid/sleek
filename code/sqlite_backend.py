@@ -16,7 +16,6 @@ SURVEYS_USER_ID = 0
 SURVEYS_ID = 1
 SURVEYS_AM_CHECK = 2
 SURVEYS_PM_CHECK = 3
-SURVEYS_ACTIVE = 4
 
 def init(DB_path):
 	"""
@@ -26,7 +25,7 @@ def init(DB_path):
 										  active INTEGER DEFAULT 1) '''
 	
 	USER_SURVEYS = ''' CREATE TABLE user_surveys(user_id TEXT, survey_id TEXT, 
-										         am_check TEXT, pm_check TEXT, active INTEGER DEFAULT 1, 
+										         am_check TEXT, pm_check TEXT, 
 										         PRIMARY KEY(user_id, survey_id))  '''
 
 	SURVEYS = ''' CREATE TABLE surveys(id TEXT PRIMARY KEY, survey TEXT)  '''
@@ -162,12 +161,12 @@ def get_survey(DB_path, survey_id):
 		return json.loads(x[0][0])
 	return None
 
-def join_survey(DB_path, user_id, survey_id, am_check=9, pm_check=4):	
+def join_survey(DB_path, user_id, survey_id):	
 	if not __table_exists(DB_path, "survey_"+survey_id):
 		raise RuntimeError("survey {} not found".format(survey_id))
 	if get_user(DB_path, user_id) is None:
 		add_user(DB_path, user_id)	
-	row = {"user_id":user_id, "survey_id":survey_id, "am_check":am_check, "pm_check":pm_check}
+	row = {"user_id":user_id, "survey_id":survey_id}
 	try:		
 		return __put(DB_path, "user_surveys", row) > 0
 	except sqlite3.IntegrityError:				
@@ -178,22 +177,21 @@ def list_surveys(DB_path,user_id=None):
 		sql = ''' SELECT * FROM surveys'''
 		return __get(DB_path, sql)
 	else:
-		sql = ''' SELECT * FROM user_surveys WHERE user_id=? AND active=1'''
+		sql = ''' SELECT * FROM user_surveys WHERE user_id=?'''
 		return __get(DB_path, sql,(user_id,))
 
-
-
-def schedule_survey(DB_path, user_id, survey_id, am_check, pm_check):
-	sql = '''UPDATE user_surveys SET am_check=?, pm_check=? WHERE user_id=? AND survey_id=?'''
-	return __update(DB_path, sql, (am_check, pm_check, user_id, survey_id))	
+def set_reminder(DB_path, user_id, survey_id, period, reminder):
+	if period.lower()=="am":
+		sql = '''UPDATE user_surveys SET am_check=? WHERE user_id=? AND survey_id=?'''
+	elif period.lower()=="pm":
+		sql = '''UPDATE user_surveys SET pm_check=? WHERE user_id=? AND survey_id=?'''
+	else:
+		raise NotImplementedError
+	return __update(DB_path, sql, (reminder, user_id, survey_id))	
 
 def toggle_user(DB_path, user_id, active=True):
 	sql = '''UPDATE users SET active=? WHERE id=?'''
 	return __update(DB_path, sql, (active, user_id)) > 0	
-
-def toggle_survey(DB_path, user_id, survey_id, active=True):
-	sql = '''UPDATE user_surveys SET active=? WHERE user_id=? AND survey_id=?'''
-	return __update(DB_path, sql, (active, user_id, survey_id)) > 0
 
 def save_response(DB_path, user_id, survey_id, ts, response):
 	"""
@@ -203,25 +201,3 @@ def save_response(DB_path, user_id, survey_id, ts, response):
 	response["ts"] = ts
 	survey_table = "survey_{}".format(survey_id)
 	return __put(DB_path, survey_table, response)
-
-
-# def new_response(DB_path, user_id, survey_id, timestamp):
-# 	return __put(DB_path, "survey_"+survey_id, {"user_id":user_id, "timestamp":timestamp}) 
-
-# def close_response(DB_path, user_id, survey_id, response_id):
-# 	sql = '''UPDATE survey_{} SET complete=1 WHERE user_id=? AND id=? '''.format(survey_id)
-# 	return __update(DB_path, sql, (user_id, response_id)) > 0
-
-# def save_response(DB_path, survey_id, user_id, response_id, update):
-# 	"""
-# 		row is a dictionary: {column: value}
-# 	"""
-# 	db = sqlite3.connect(DB_path)
-# 	cursor = db.cursor()		
-# 	fields = update.keys()
-# 	values = update.values()
-# 	update_fields = ','.join([k+"=?" for k in fields]).strip(',')	
-# 	sql_insert = ''' UPDATE survey_{} SET {} WHERE user_id=? and id=? '''.format(survey_id,update_fields)
-# 	cursor.execute(sql_insert, values+[user_id,response_id])		
-# 	db.commit()
-# 	db.close()
