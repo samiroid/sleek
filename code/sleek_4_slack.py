@@ -103,18 +103,6 @@ class Sleek4Slack(Sleek):
 		display = "*Your Surveys*\n{}\n{}"
 		return display.format("\n".join(us),"\n".join(ot))
 
-
-	def __get_time(self, t, period):
-		assert period in ["am","pm"]
-		try:
-			assert period in t
-			nt = str(datetime.strptime(t , '%I:%M%p').time())
-			return nt, "OK"
-		except ValueError:
-			return None, "invalid {} time".format(period)
-		except (IndexError, AssertionError):			
-			return None, "{} time is missing".format(period)
-	
 	def __list_surveys(self, user_id):				
 		us = backend.list_surveys(self.DB_path, user_id)		
 		user_surveys  = {x[1]:None for x in us}				
@@ -183,7 +171,7 @@ class Sleek4Slack(Sleek):
 		# ---- ANSWER SURVEY ----
 		elif action == "survey":
 			if len(tokens) < 2: return status.MISSING_PARAMS
-			return self.get_survey(tokens, context)			
+			return self.open_survey(tokens, context)			
 
 		# ---- UPLOAD SURVEY ----
 		elif action == "upload":			
@@ -276,8 +264,10 @@ class Sleek4Slack(Sleek):
 		except ValueError:
 			return status.ANSWERS_INVALID
 		#incorrect number of answers
-		if len(answers) != len(questions):
-			return status.ANSWERS_INCORRECT_NUMBER.format(len(questions), len(answers))		
+		if len(answers) > len(questions):
+			return status.ANSWERS_TOO_MANY.format(len(questions), len(answers))		
+		elif len(answers) < len(questions):
+			return status.ANSWERS_TOO_FEW.format(len(questions), len(answers))		
 		response = {}
 		for q, a in zip(questions, answers):
 			q_id = q["id"]
@@ -312,7 +302,7 @@ class Sleek4Slack(Sleek):
 		if r > 0: return status.ANSWERS_DELETE_OK.format(survey_id.upper())
 		else:	  return status.ANSWERS_DELETE_FAIL.format(survey_id.upper())
 	
-	def get_survey(self, tokens, context):		
+	def open_survey(self, tokens, context, display=True):		
 		user_id = context["user_id"]
 		survey_id = tokens[1]
 		user_surveys = self.__list_surveys(user_id)
@@ -324,17 +314,12 @@ class Sleek4Slack(Sleek):
 		#register this thread as an open survey
 		self.survey_threads[context["thread_ts"]] = (user_id, survey_id, None)
 		s = self.current_surveys[survey_id]
-		return self.__display_survey(s)
+		if display: return self.__display_survey(s)
+		else:       return s
 
 	def join_survey(self, tokens, context):
-		user_id = context["user_id"]				
-		err = ""		
-		survey_id = tokens[1]						
-		#validate schedule
-		am_check, err = self.__get_time(tokens[2], "am")		
-		if am_check is None: return err
-		pm_check, err = self.__get_time(tokens[3], "pm")		
-		if pm_check is None: return err		
+		user_id = context["user_id"]						
+		survey_id = tokens[1]
 		#check if survey exists
 		if not survey_id in self.current_surveys: return status.SURVEY_UNKNOWN.format(survey_id.upper())
 		#check if user already subscrided this survey
@@ -342,16 +327,44 @@ class Sleek4Slack(Sleek):
 			if self.__list_surveys(user_id)[survey_id]:
 				return status.SURVEY_IS_SUBSCRIBED.format(survey_id.upper())
 		except KeyError: 
-			pass
-		try:				
-			#if user already subscribed this survey but it is inactive, just set it 'active'
-			if not backend.toggle_survey(self.DB_path, user_id, survey_id, active=True):
-				#try to join survey					
-				if not backend.join_survey(self.DB_path, user_id, survey_id, am_check, pm_check):
-					return status.SURVEY_JOIN_FAIL.format(survey_id.upper())
+			pass		
+		#check reminder times
+		try:
+			_, _ = self.__get_times(tokens)
+		except RuntimeError as e:
+			return str(e)
+		try:
+			#try to join survey					
+			if not backend.join_survey(self.DB_path, user_id, survey_id):
+				return status.SURVEY_JOIN_FAIL.format(survey_id.upper())
 		except RuntimeError as e:			
-			return status.SURVEY_JOIN_FAIL.format(survey_id.upper()) + " [err: {}]".format(str(e))
-		return status.SURVEY_JOIN_OK.format(survey_id,am_check,pm_check)
+			return status.SURVEY_JOIN_FAIL.format(survey_id.upper()) + " [err: {}]".format(str(e))		
+		rep = ""
+		if len(tokens) > 2:
+			rep = self.remind_survey(tokens, context)
+			return status.SURVEY_JOIN_OK.format(survey_id)+"\n"+rep
+		return status.SURVEY_JOIN_OK.format(survey_id)
+		
+		#set reminders		
+		# 
+		# ok=True
+		# if am_reminder is not None: 
+		# 	if not backend.set_reminder(self.DB_path, user_id, survey_id, "am", am_reminder):
+		# 		rep += "\n"+status.REMINDER_FAIL.format(survey_id)
+		# 		ok=False	
+		# if ok and pm_reminder is not None:
+		# 	#try to set a reminder			 
+		# 	if not backend.set_reminder(self.DB_path, user_id, survey_id, "pm", pm_reminder):
+		# 		rep += "\n"+status.REMINDER_FAIL.format(survey_id)
+		# 		ok=False	
+		# if ok:
+		# 	if am_reminder is not None and pm_reminder is not None:
+		# 		rep += "\n"+status.REMINDER_OK_2.format(survey_id, am_reminder,pm_reminder)
+		# 	elif am_reminder is not None:					
+		# 		rep += "\n"+status.REMINDER_OK.format(survey_id, am_reminder)
+		# 	elif pm_reminder is not None:				
+		# 		rep += "\n"+status.REMINDER_OK.format(survey_id, pm_reminder)
+		# return rep
 
 	def leave_survey(self, tokens, context):
 		user_id = context["user_id"]
@@ -364,7 +377,7 @@ class Sleek4Slack(Sleek):
 				return status.SURVEY_NOT_SUBSCRIBED.format(survey_id.upper())
 		except KeyError: 
 			pass						
-		if not backend.toggle_survey(self.DB_path, user_id, survey_id, active=False):
+		if not backend.leave_survey(self.DB_path, user_id, survey_id):
 			return status.SURVEY_LEAVE_FAIL.format(survey_id.upper())
 		
 		return status.SURVEY_LEAVE_OK.format(survey_id.upper())
@@ -388,20 +401,64 @@ class Sleek4Slack(Sleek):
 		except RuntimeError as e:
 			return status.REPORT_FAIL.format(survey_id.upper()) + " [err: {}]".format(str(e))			 	
 
+	# def remind_survey(self, tokens, context):
+	# 	user_id = context["user_id"]				
+	# 	err = ""		
+	# 	survey_id = tokens[1]						
+	# 	#validate schedule		
+	# 	am_check, err = self.__get_time(tokens[2], "am")		
+	# 	if am_check is None: return err
+	# 	pm_check, err = self.__get_time(tokens[3], "pm")		
+	# 	if pm_check is None: return err				
+	# 	try:				
+	# 		backend.schedule_survey(self.DB_path, user_id, survey_id, am_check, pm_check)
+	# 	except RuntimeError as e:			
+	# 		return status.SURVEY_REMIND_FAIL.format(survey_id.upper()) + " [err: {}]".format(str(e))
+	# 	return status.SURVEY_REMIND_OK.format(survey_id,am_check,pm_check)
+	def __get_times(self, tokens):
+		am_reminder = None
+		pm_reminder = None
+		for t in tokens[1:]:
+			if "am" in t:
+				try:
+					_ = datetime.strptime(t , '%I:%M%p').time()
+					am_reminder = t
+				except ValueError:
+					raise RuntimeError(status.INVALID_TIME.format(t))
+			elif "pm" in t:
+				try:
+					_ = datetime.strptime(t , '%I:%M%p').time()
+					pm_reminder = t
+				except ValueError:
+					raise RuntimeError(status.INVALID_TIME.format(t))
+			else:
+				pass
+		return am_reminder, pm_reminder
+
 	def remind_survey(self, tokens, context):
 		user_id = context["user_id"]				
-		err = ""		
-		survey_id = tokens[1]						
-		#validate schedule		
-		am_check, err = self.__get_time(tokens[2], "am")		
-		if am_check is None: return err
-		pm_check, err = self.__get_time(tokens[3], "pm")		
-		if pm_check is None: return err				
-		try:				
-			backend.schedule_survey(self.DB_path, user_id, survey_id, am_check, pm_check)
-		except RuntimeError as e:			
-			return status.SURVEY_REMIND_FAIL.format(survey_id.upper()) + " [err: {}]".format(str(e))
-		return status.SURVEY_REMIND_OK.format(survey_id,am_check,pm_check)
+		survey_id = tokens[1]
+		try:
+			am_reminder, pm_reminder = self.__get_times(tokens)
+		except RuntimeError as e:
+			return str(e)		
+		if am_reminder is not None: 
+			if not backend.set_reminder(self.DB_path, user_id, survey_id, "am", am_reminder):
+				return status.REMINDER_FAIL.format(survey_id)				
+		if pm_reminder is not None:
+			#try to set a reminder			 
+			if not backend.set_reminder(self.DB_path, user_id, survey_id, "pm", pm_reminder):
+				return status.REMINDER_FAIL.format(survey_id)
+		
+		if am_reminder is not None and pm_reminder is not None:
+			return status.REMINDER_OK_2.format(survey_id, am_reminder,pm_reminder)
+		elif am_reminder is not None:					
+			return status.REMINDER_OK.format(survey_id, am_reminder)
+		elif pm_reminder is not None:				
+			return status.REMINDER_OK.format(survey_id, pm_reminder)
+		else:
+			raise NotImplementedError
+		
 
 	def upload_survey(self, survey):
 		"""

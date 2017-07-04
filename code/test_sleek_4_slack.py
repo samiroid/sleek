@@ -13,8 +13,8 @@ DB_path="DATA/test_slack.db"
 
 bot_name="dude"
 api_token = os.environ.get('SLACK_BOT_TOKEN')
-silvio="U5TCJ682Z"
-context = {"user":silvio,"ts":1,"thread_ts":2}
+some_user="U5TCJ682Z"
+context = {"user_id":some_user,"ts":1,"thread_ts":2}
 
 def test_confs():
 	print "hello"
@@ -60,30 +60,78 @@ def test_join():
 	survey_id = survey["survey_id"]
 	sleek.upload_survey(survey)
 	#test wrong inputs	
-	am_check = "10:00AM" 
-	pm_check = "05:00PM" 
+	am_check = "10:00am" 
+	pm_check = "05:00pm" 
+	bad_am = "19dasam"
+	bad_pm = "19daspm"
 	#bad inputs
-	ret = sleek.join_survey(["join", survey_id, "10", "10"], context) 
-	assert ret == "AM time is missing"
-	ret = sleek.join_survey(["join", survey_id, am_check, "10"], context) 
-	assert ret == "PM time is missing"
-	ret = sleek.join_survey(["join", survey_id, "10", pm_check], context) 
-	assert ret == "AM time is missing"
 	#try to join a survey that does not exist	
 	bad_survey_id = "something"
 	ret = sleek.join_survey(["join", bad_survey_id,am_check,pm_check], context)
 	assert status.SURVEY_UNKNOWN.format(bad_survey_id.upper()) == ret
+	#invalid am time
+	ret = sleek.join_survey(["join", survey_id, bad_am], context) 
+	assert ret == status.INVALID_TIME.format(bad_am)
+	#invalid pm time
+	ret = sleek.join_survey(["join", survey_id, bad_pm], context) 
+	assert ret == status.INVALID_TIME.format(bad_pm)
+
+	#valid AM time but *invalid* PM time
+	ret = sleek.join_survey(["join", survey_id, am_check, bad_am], context) 
+	assert ret == status.INVALID_TIME.format(bad_am)
+
+	#*valid* AM time but invalid PM time
+	ret = sleek.join_survey(["join", survey_id, bad_pm, pm_check], context) 
+	assert ret == status.INVALID_TIME.format(bad_pm)
+
 	#check that user has not joined the sleep survey
-	data = backend.list_surveys(DB_path, silvio)
+	data = backend.list_surveys(DB_path, some_user)
 	assert data == []
-	ret = sleek.join_survey(["join",survey_id, am_check, pm_check], context)
-	assert status.SURVEY_JOIN_OK.format(survey_id, "10:00:00", "17:00:00") == ret
-	data = backend.list_surveys(DB_path, silvio)[0]
-	assert data[0] == silvio
+	ret = sleek.join_survey(["join",survey_id], context)
+	assert status.SURVEY_JOIN_OK.format(survey_id) == ret
+	data = backend.list_surveys(DB_path, some_user)[0]
+	assert data[0] == some_user
 	assert data[1] == survey_id
 	#joining the same survey again
 	ret = sleek.join_survey(["join",survey_id, am_check, pm_check], context) 
 	assert ret == status.SURVEY_IS_SUBSCRIBED.format(survey_id.upper())
+
+	#leave survey
+	backend.leave_survey(DB_path, some_user, survey_id)
+	
+	#join survey with AM reminder
+	ret = sleek.join_survey(["join",survey_id, am_check], context).split("\n")	
+	assert status.SURVEY_JOIN_OK.format(survey_id) == ret[0]			
+	assert status.REMINDER_OK.format(survey_id, am_check) == ret[1]
+	data = backend.list_surveys(DB_path, some_user)[0]
+	assert data[0] == some_user
+	assert data[1] == survey_id
+	assert data[2] == am_check
+	assert data[3] == None
+	backend.leave_survey(DB_path, some_user, survey_id)
+
+	#join survey with PM reminder
+	ret = sleek.join_survey(["join",survey_id, pm_check], context).split("\n")	
+	assert status.SURVEY_JOIN_OK.format(survey_id) == ret[0]	
+	assert status.REMINDER_OK.format(survey_id, pm_check) == ret[1]	
+	data = backend.list_surveys(DB_path, some_user)[0]	
+	assert data[0] == some_user
+	assert data[1] == survey_id
+	assert data[2] == None
+	assert data[3] == pm_check
+	backend.leave_survey(DB_path, some_user, survey_id)
+
+	#join survey with both reminders
+	ret = sleek.join_survey(["join",survey_id, pm_check, am_check], context).split("\n")
+	assert status.SURVEY_JOIN_OK.format(survey_id, survey_id) == ret[0]	
+	assert status.REMINDER_OK_2.format(survey_id, am_check, 
+												  pm_check) == ret[1]		
+	data = backend.list_surveys(DB_path, some_user)[0]
+	assert data[0] == some_user
+	assert data[1] == survey_id
+	assert data[2] == am_check
+	assert data[3] == pm_check
+	backend.leave_survey(DB_path, some_user, survey_id)
 
 def test_leave():
 	sleek = Sleek4Slack(DB_path, init_backend=True)		
@@ -101,41 +149,19 @@ def test_leave():
 	bad_survey_id = "stress"
 	ret = sleek.leave_survey(["leave",bad_survey_id], context)
 	assert ret == status.SURVEY_NOT_SUBSCRIBED.format(bad_survey_id.upper())
-	#join sleep survey
-	am_check = "10:00AM"
-	pm_check = "5:00PM"
+	#join sleep survey	
 	survey_id = "sleep"
-	ret = sleek.join_survey(["join", survey_id, am_check, pm_check], context)
-	assert status.SURVEY_JOIN_OK.format(survey_id, "10:00:00", "17:00:00") == ret
-	data = backend.list_surveys(DB_path, silvio)[0]
-	assert data[0] == silvio
+	ret = sleek.join_survey(["join", survey_id], context)
+	assert status.SURVEY_JOIN_OK.format(survey_id) == ret
+	data = backend.list_surveys(DB_path, some_user)[0]
+	assert data[0] == some_user
 	assert data[1] == "sleep"	
 	#try to leave stress survey 
 	ret = sleek.leave_survey(["leave",survey_id], context)
 	assert ret == status.SURVEY_LEAVE_OK.format(survey_id.upper())
-	for x in backend.list_surveys(DB_path, silvio):
+	for x in backend.list_surveys(DB_path, some_user):
 		assert "sleep" not in x[0]
 	
-def test_list_surveys():
-	sleek = Sleek4Slack(DB_path, init_backend=True)		
-	# sleek.connect(api_token)		
-	surveys = sleek.list_surveys(["list"], context)
-	assert len(surveys) == 0, surveys
-	#add sleep and stress surveys	
-	sleek.upload_survey(json.load(open("DATA/surveys/sleep.json", 'r')))	
-	sleek.upload_survey(json.load(open("DATA/surveys/stress.json", 'r')))
-	surveys = sleek.list_surveys(["list"], context)
-	assert len(surveys) == 2, surveys
-	assert surveys["sleep"] == False
-	assert surveys["stress"] == False
-	am_check = "10:00AM"
-	pm_check = "5:00PM"
-	assert sleek.join_survey(["join","sleep", am_check, pm_check], context)[0]
-	surveys = sleek.list_surveys(["list"], context)
-	assert len(surveys) == 2, surveys
-	assert surveys["sleep"] == True, surveys
-	assert surveys["stress"] == False, surveys
-
 def test_reminder():
 	sleek = Sleek4Slack(DB_path, init_backend=True)		
 	# sleek.connect(api_token)		
@@ -143,36 +169,66 @@ def test_reminder():
 	survey = json.load(open("DATA/surveys/sleep.json", 'r'))				
 	survey_id = survey["survey_id"]
 	sleek.upload_survey(survey)	
-	am_check = "10:00AM"
-	pm_check = "5:00PM"
+	am_check = "10:00am"
+	pm_check = "5:00pm"
 	#join survey
-	ret = sleek.join_survey(["join",survey_id, am_check, pm_check], context)	
-	data = backend.list_surveys(DB_path, silvio)[0]
-	assert data[0] == silvio
+	ret = sleek.join_survey(["join",survey_id], context)	
+	data = backend.list_surveys(DB_path, some_user)[0]
+	assert data[0] == some_user
 	assert data[1] == survey_id
-	assert data[2] == str(datetime.strptime(am_check , '%I:%M%p').time())
-	assert data[3] == str(datetime.strptime(pm_check , '%I:%M%p').time())
+	assert data[2] == None
+	assert data[3] == None
 
 	#try to reschedule
-	new_am_check="6:00AM"
-	new_pm_check="6:20PM"
+	new_am_check="6:00am"
+	new_pm_check="6:20pm"
+	bad_am="6:am"
+	bad_pm=":20pm"
 	#bad inputs
-	ret = sleek.remind_survey(["reminder", survey_id, "10", "10"], context) 
-	assert ret == "AM time is missing"
-	ret = sleek.remind_survey(["reminder", survey_id, am_check, "10"], context) 
-	assert ret == "PM time is missing"
-	ret = sleek.remind_survey(["reminder", survey_id, "10", pm_check], context) 
-	assert ret == "AM time is missing"
-	ret = sleek.remind_survey(["reminder",survey_id, new_am_check, new_pm_check], context) 
-	assert ret == status.SURVEY_REMIND_OK.format(survey_id, "06:00:00", "18:20:00")
 
-	data = backend.list_surveys(DB_path, silvio)[0]
-	assert data[0] == silvio
+	#invalid am time
+	ret = sleek.remind_survey(["reminder", survey_id, bad_am], context) 
+	assert ret == status.INVALID_TIME.format(bad_am)
+	#invalid pm time
+	ret = sleek.remind_survey(["reminder", survey_id, bad_pm], context) 
+	assert ret == status.INVALID_TIME.format(bad_pm)
+	
+	#valid AM time but *invalid* PM time
+	ret = sleek.remind_survey(["reminder", survey_id, am_check, bad_am], context) 
+	assert ret == status.INVALID_TIME.format(bad_am)
+
+	#*valid* AM time but invalid PM time
+	ret = sleek.remind_survey(["reminder", survey_id, bad_pm, pm_check], context) 
+	assert ret == status.INVALID_TIME.format(bad_pm)
+	
+	#new am reminder
+	ret = sleek.remind_survey(["reminder",survey_id, new_am_check], context) 
+	assert ret == status.REMINDER_OK.format(survey_id, new_am_check)
+	data = backend.list_surveys(DB_path, some_user)[0]
+	assert data[0] == some_user
 	assert data[1] == survey_id
-	assert data[2] == str(datetime.strptime(new_am_check , '%I:%M%p').time())
-	assert data[3] == str(datetime.strptime(new_pm_check , '%I:%M%p').time())
+	assert data[2] == new_am_check
+	assert data[3] == None
 
-def test_delete_answers():
+	#new pm reminder
+	ret = sleek.remind_survey(["reminder",survey_id, new_pm_check], context) 
+	assert ret == status.REMINDER_OK.format(survey_id, new_pm_check)
+	data = backend.list_surveys(DB_path, some_user)[0]
+	assert data[0] == some_user
+	assert data[1] == survey_id
+	assert data[2] == new_am_check
+	assert data[3] == new_pm_check
+
+	#old reminders
+	ret = sleek.remind_survey(["reminder",survey_id, am_check, pm_check], context) 
+	assert ret == status.REMINDER_OK_2.format(survey_id, am_check, pm_check)
+	data = backend.list_surveys(DB_path, some_user)[0]
+	assert data[0] == some_user
+	assert data[1] == survey_id
+	assert data[2] == am_check
+	assert data[3] == pm_check
+
+def test_report_and_delete_answers():
 	sleek = Sleek4Slack(DB_path, init_backend=True)		
 	# sleek.connect(api_token)			
 	#add sleep and stress surveys	
@@ -180,51 +236,19 @@ def test_delete_answers():
 	sleek.upload_survey(json.load(open("DATA/surveys/stress.json", 'r')))	
 	user_id="u1"
 	survey_id="sleep"
-	am_check = "10:00AM"
-	pm_check = "5:00PM"
+	am_check = "10:00am"
+	pm_check = "5:00pm"
 	assert sleek.join_survey(["join","sleep", am_check, pm_check], context)[0]
 	assert sleek.join_survey(["join","stress", am_check, pm_check], context)[0]
 	#add two responses
-	resp_id_1 = backend.new_response(DB_path, user_id, survey_id, 100)
-	backend.save_response(DB_path, survey_id, user_id, resp_id_1, {"sleep_hours":9,"sleep_quality":5})
-	backend.close_response(DB_path, user_id, survey_id, resp_id_1)
-
-	resp_id_2 = backend.new_response(DB_path, user_id, survey_id, 200)
-	backend.save_response(DB_path, survey_id, user_id, resp_id_2, {"sleep_hours":5,"sleep_quality":2})
-	backend.close_response(DB_path, user_id, survey_id, resp_id_2)
+	resp_id_1 = backend.save_response(DB_path, user_id, survey_id, 100, {"sleep_hours":9,"sleep_quality":5})
+	resp_id_2 = backend.save_response(DB_path, user_id, survey_id, 200, {"sleep_hours":5,"sleep_quality":2})
+	
 	#check responses are there
 	resp = backend.get_report(DB_path, user_id, survey_id)	
-	assert resp[0] == (resp_id_2, user_id, '200', '5', '2', 1)
-	assert resp[1] == (resp_id_1, user_id, '100', '9', '5', 1)
-	backend.delete_responses(DB_path, user_id, survey_id)
-	resp = backend.get_report(DB_path, user_id, survey_id)
-	assert resp == []
-
-def test_report():
-	sleek = Sleek4Slack(DB_path, init_backend=True)		
-	# sleek.connect(api_token)			
-	#add sleep and stress surveys	
-	sleek.upload_survey(json.load(open("DATA/surveys/sleep.json", 'r')))	
-	sleek.upload_survey(json.load(open("DATA/surveys/stress.json", 'r')))	
-	user_id="u1"
-	survey_id="sleep"
-	am_check = "10:00AM"
-	pm_check = "5:00PM"
-	assert sleek.join_survey(["join","sleep", am_check, pm_check], context)[0]
-	assert sleek.join_survey(["join","stress", am_check, pm_check], context)[0]
-	#add two responses
-	resp_id_1 = backend.new_response(DB_path, user_id, survey_id, 100)
-	backend.save_response(DB_path, survey_id, user_id, resp_id_1, {"sleep_hours":9,"sleep_quality":5})
-	backend.close_response(DB_path, user_id, survey_id, resp_id_1)
-
-	resp_id_2 = backend.new_response(DB_path, user_id, survey_id, 200)
-	backend.save_response(DB_path, survey_id, user_id, resp_id_2, {"sleep_hours":5,"sleep_quality":2})
-	backend.close_response(DB_path, user_id, survey_id, resp_id_2)
-	#check responses are there
-	resp = backend.get_report(DB_path, user_id, survey_id)	
-	assert resp[0] == (resp_id_2, user_id, '200', '5', '2', 1)
-	assert resp[1] == (resp_id_1, user_id, '100', '9', '5', 1)
-	backend.delete_responses(DB_path, user_id, survey_id)
+	assert resp[0] == (resp_id_2, user_id, '200', '5', '2')
+	assert resp[1] == (resp_id_1, user_id, '100', '9', '5')
+	backend.delete_answers(DB_path, user_id, survey_id)
 	resp = backend.get_report(DB_path, user_id, survey_id)
 	assert resp == []
 
@@ -238,24 +262,24 @@ def test_survey():
 	sleek.upload_survey(survey_sleep)		
 	sleek.upload_survey(survey_stress)			
 	survey_id="sleep"
-	am_check = "10:00AM"
-	pm_check = "5:00PM"
+	am_check = "10:00am"
+	pm_check = "5:00pm"
 	sleek.join_survey(["join",survey_id, am_check, pm_check], context)	
 	#check that there is no response yet
-	resp = backend.get_response(DB_path, silvio, survey_id, 1)
+	resp = backend.get_response(DB_path, some_user, survey_id, 1)
 	assert resp == []
 	#engage
 	#survey does not exist
-	resp = sleek.get_survey(["survey","bad_survey"], context)
+	resp = sleek.open_survey(["survey","bad_survey"], context)
 	assert resp == status.SURVEY_UNKNOWN.format("BAD_SURVEY")
 	#user did not subscribe to this survey
-	resp = sleek.get_survey(["survey","stress"], context)
+	resp = sleek.open_survey(["survey","stress"], context)
 	assert resp == status.SURVEY_NOT_SUBSCRIBED.format("STRESS") + " " + status.PLEASE_SUBSCRIBE		
 	
-	survey = sleek.get_survey(["survey","sleep"], context)
-	assert survey == survey_sleep["survey"]
+	survey = sleek.open_survey(["survey","sleep"], context, display=False)
+	assert survey == survey_sleep
 	#check that a survey thread is created
-	assert sleek.survey_threads[context["thread_ts"]] == (silvio, survey_id)
+	assert sleek.survey_threads[context["thread_ts"]] == (some_user, survey_id, None)
 
 def test_save_answer():
 	sleek = Sleek4Slack(DB_path, init_backend=True)		
@@ -267,40 +291,40 @@ def test_save_answer():
 	sleek.upload_survey(survey_sleep)		
 	sleek.upload_survey(survey_stress)			
 	survey_id="sleep"
-	am_check = "10:00AM"
-	pm_check = "5:00PM"
+	am_check = "10:00am"
+	pm_check = "5:00pm"
 	sleek.join_survey(["join",survey_id, am_check, pm_check], context)	
-	survey = sleek.get_survey(["survey","sleep"], context)
-	assert survey == survey_sleep["survey"]
+	survey = sleek.open_survey(["survey","sleep"], context, display=False)
+	assert survey == survey_sleep
 	#check that a survey thread is created
-	assert sleek.survey_threads[context["thread_ts"]] == (silvio, survey_id)
+	assert sleek.survey_threads[context["thread_ts"]] == (some_user, survey_id, None)
 
 	#incorrect number of answers
 	bad_resp = "1"
-	resp = sleek.get_answer(silvio, survey_id, bad_resp, context["thread_ts"])
-	assert resp == status.ANSWERS_INCORRECT_NUMBER.format(2, 1)		
+	resp = sleek.get_answer(context["thread_ts"], bad_resp )	
+	assert resp == status.ANSWERS_TOO_FEW.format(2, 1)		
 
 	bad_resp = "1 2 3 4"
-	resp = sleek.get_answer(silvio, survey_id, bad_resp, context["thread_ts"])
-	assert resp == status.ANSWERS_INCORRECT_NUMBER.format(2, 4)		
+	resp = sleek.get_answer(context["thread_ts"], bad_resp )	
+	assert resp == status.ANSWERS_TOO_MANY.format(2, 4)		
 
 	#invalid choice 1
 	bad_resp = "-1 2"
 	bad_q_id = "sleep_hours"
 	#sleep_quality
-	resp = sleek.get_answer(silvio, survey_id, bad_resp, context["thread_ts"])
+	resp = sleek.get_answer(context["thread_ts"], bad_resp )	
 	assert resp == status.ANSWERS_BAD_CHOICE.format(bad_q_id)
 	#invalid choice 2
 	bad_resp = "1 20"
 	bad_q_id = "sleep_quality"
 	#sleep_quality
-	resp = sleek.get_answer(silvio, survey_id, bad_resp, context["thread_ts"])	
+	resp = sleek.get_answer(context["thread_ts"], bad_resp )	
 	assert resp == status.ANSWERS_BAD_CHOICE.format(bad_q_id), resp
 
 	good_resp = "1 2"		
-	resp = sleek.get_answer(silvio, survey_id, good_resp, context["thread_ts"])	
+	resp = sleek.get_answer(context["thread_ts"], good_resp )	
+	resp = sleek.save_answer(context["thread_ts"], 100)
 	assert resp == status.ANSWERS_SAVE_OK
-
 	#ok
 
 
@@ -353,77 +377,10 @@ def test_save_answer():
 # 	assert resp[4] == "2"
 # 	assert resp[5] == 1 #response should be closed
 
-
-# def test_engage():
-# 	sleek = Sleek4Slack(DB_path, init_backend=True)		
-# 	# sleek.connect(api_token)			
-# 	#add survey
-# 	survey = json.load(open("DATA/surveys/sleep.json", 'r'))
-# 	sleek.upload_survey(survey)		
-# 	user_id="u1"
-# 	survey_id="sleep"
-# 	am_check = "10:00AM"
-# 	pm_check = "5:00PM"
-# 	sleek.join_survey(["join","sleep", am_check, pm_check], context)	
-# 	#check that there no responses yet
-# 	resp = backend.get_response(DB_path, user_id, survey_id, 1)
-# 	assert resp == []
-# 	#engage
-# 	question, response_id = sleek._engage(user_id, survey_id)
-# 	assert response_id == 1
-# 	assert question["id"] == survey["survey"][0]["id"]
-# 	#check that a new response was created
-# 	resp = backend.get_response(DB_path, user_id, survey_id, response_id)
-# 	assert resp[0] == response_id
-# 	assert resp[1] == user_id
-# 	assert resp[3] == None
-# 	assert resp[4] == None
-# 	#engage again and check that the same question is returned (it was not answered yet)
-# 	same_question, same_response_id = sleek._engage(user_id, survey_id)
-# 	assert same_response_id == response_id
-# 	assert question["id"] == survey["survey"][0]["id"]
-
 if __name__ == "__main__":
+	pass
+		# test_join()
 	
-	sleek = Sleek4Slack(DB_path, init_backend=True)		
-	# sleek.connect(api_token)			
-	#add survey
-	survey_sleep = json.load(open("DATA/surveys/sleep.json", 'r'))
-	survey_stress = json.load(open("DATA/surveys/stress.json", 'r'))
-
-	sleek.upload_survey(survey_sleep)		
-	sleek.upload_survey(survey_stress)			
-	survey_id="sleep"
-	am_check = "10:00AM"
-	pm_check = "5:00PM"
-	sleek.join_survey(["join",survey_id, am_check, pm_check], context)	
-	survey = sleek.get_survey(["survey","sleep"], context)
-	assert survey == survey_sleep["survey"]
-	#check that a survey thread is created
-	assert sleek.survey_threads[context["thread_ts"]] == (silvio, survey_id)
-
-	#incorrect number of answers
-	bad_resp = "1"
-	resp = sleek.get_answer(silvio, survey_id, bad_resp, context["thread_ts"])
-	assert resp == status.ANSWERS_INCORRECT_NUMBER.format(2, 1)		
-
-	bad_resp = "1 2 3 4"
-	resp = sleek.get_answer(silvio, survey_id, bad_resp, context["thread_ts"])
-	assert resp == status.ANSWERS_INCORRECT_NUMBER.format(2, 4)		
-
-	#invalid choice 1
-	bad_resp = "-1 2"
-	bad_q_id = "sleep_hours"
-	#sleep_quality
-	resp = sleek.get_answer(silvio, survey_id, bad_resp, context["thread_ts"])
-	assert resp == status.ANSWERS_BAD_CHOICE.format(bad_q_id)
-	#invalid choice 2
-	bad_resp = "1 20"
-	bad_q_id = "sleep_quality"
-	#sleep_quality
-	resp = sleek.get_answer(silvio, survey_id, bad_resp, context["thread_ts"])	
-	assert resp == status.ANSWERS_BAD_CHOICE.format(bad_q_id), resp
-
 
 
 

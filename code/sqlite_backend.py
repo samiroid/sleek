@@ -180,6 +180,10 @@ def list_surveys(DB_path,user_id=None):
 		sql = ''' SELECT * FROM user_surveys WHERE user_id=?'''
 		return __get(DB_path, sql,(user_id,))
 
+def leave_survey(DB_path, user_id, survey_id):
+	sql = '''DELETE FROM user_surveys WHERE user_id=? and survey_id=?'''.format(survey_id)
+	return __update(DB_path, sql, (user_id, survey_id)) > 0
+
 def set_reminder(DB_path, user_id, survey_id, period, reminder):
 	if period.lower()=="am":
 		sql = '''UPDATE user_surveys SET am_check=? WHERE user_id=? AND survey_id=?'''
