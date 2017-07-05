@@ -99,7 +99,7 @@ class Sleek4Slack(Sleek):
 
 		df = pd.DataFrame(report).iloc[:,3:]
 		df.columns = ["ts"] + [q["id"] for q in s]		
-		#df['ts'] = pd.to_datetime(df['ts']).dt.strftime("%Y-%M-%d %H:%M")
+		df['ts'] = pd.to_datetime(df['ts']).dt.strftime("%Y-%m-%d %H:%M")
 		df.set_index('ts', inplace=True)	
 		
 		return out.format(survey_id.upper(), repr(df))	
@@ -256,7 +256,7 @@ class Sleek4Slack(Sleek):
 						del self.survey_threads[thread_ts]
 						reply = [self.ack(), status.SURVEY_CANCELED]
 					elif tokens[0] == "ok":
-						reply = self.save_answer(thread_ts, ts)
+						reply = self.save_answer(thread_ts)
 					elif tokens[0] == "notes":
 						open_user, open_survey, response = self.survey_threads[thread_ts] 
 						#add a placeholder for the notes on the response
@@ -320,13 +320,14 @@ class Sleek4Slack(Sleek):
 		self.survey_threads[survey_thread] = (open_user, open_survey, response)		
 		return [self.__display_answer(response), status.ANSWERS_CONFIRM]
 
-	def save_answer(self, survey_thread, ts):
+	def save_answer(self, survey_thread):
 		user_id, survey_id, response  = self.survey_threads[survey_thread]
 		if response is None:
 			return status.ANSWERS_INVALID
 		try:			
 			del self.survey_threads[survey_thread]
 			# set_trace()
+			ts = datetime.now().strftime('%Y-%m-%d %H:%M')
 			if not backend.save_response(self.DB_path, user_id, survey_id, ts, response):
 				return status.ANSWERS_SAVE_FAIL			
 		except RuntimeError:

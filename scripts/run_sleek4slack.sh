@@ -9,4 +9,4 @@ BOT_ID=U62QPNT8D
 #init backend
 python code/main.py -db $BACKEND -init -load_surveys DATA/surveys/
 #run
-python code/main.py -db $BACKEND -connect $API_TOKEN $BOT_ID -dbg
+python code/main.py -db $BACKEND -connect $API_TOKEN $BOT_ID 
