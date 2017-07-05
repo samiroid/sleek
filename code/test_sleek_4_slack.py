@@ -328,54 +328,6 @@ def test_save_answer():
 	#ok
 
 
-# def test_save_response():
-# 	sleek = Sleek4Slack(DB_path, init_backend=True)		
-# 	# sleek.connect(api_token)			
-# 	#add survey
-# 	survey = json.load(open("DATA/surveys/sleep.json", 'r'))
-# 	sleek.upload_survey(survey)		
-# 	user_id="u1"
-# 	survey_id="sleep"
-# 	am_check = "10:00AM"
-# 	pm_check = "5:00PM"
-# 	assert sleek.join_survey(["join","sleep", am_check, pm_check], context)[0]
-# 	#check that there no responses yet
-# 	resp = backend.get_response(DB_path, user_id, survey_id, 1)
-# 	assert resp == []
-# 	#engage
-# 	question_1, resp_id_1 = sleek._engage(user_id, survey_id)
-# 	assert resp_id_1 == 1
-# 	assert question_1["id"] == survey["survey"][0]["id"]
-# 	#check that a new response was created
-# 	response = backend.get_response(DB_path, user_id, survey_id, resp_id_1)
-# 	assert response[0] == resp_id_1
-# 	assert response[1] == user_id
-# 	assert response[3] == None
-# 	assert response[4] == None	
-# 	assert response[5] == 0
-# 	#answer question_1 (sleep hours)
-# 	sleek.answer(user_id, survey_id, question_1["id"], resp_id_1, 8)
-# 	#check that response was updated
-# 	response = backend.get_response(DB_path, user_id, survey_id, resp_id_1)
-# 	assert response[0] == resp_id_1
-# 	assert response[1] == user_id
-# 	assert response[3] == '8'
-# 	assert response[4] == None	
-# 	assert response[5] == 0
-
-# 	#engage again (new question)	
-# 	question_2, resp_id_2 = sleek._engage(user_id, survey_id)
-# 	assert resp_id_1 == resp_id_1 #this is the same response
-# 	assert question_2["id"] == survey["survey"][1]["id"]
-# 	#answer question_2 (sleep quality)
-# 	sleek.answer(user_id, survey_id, question_2["id"], resp_id_2, 2)
-# 	#check that response was updated
-# 	resp = backend.get_response(DB_path, user_id, survey_id, resp_id_2)
-# 	assert resp[0] == resp_id_2
-# 	assert resp[1] == user_id
-# 	assert resp[3] == "8"
-# 	assert resp[4] == "2"
-# 	assert resp[5] == 1 #response should be closed
 
 if __name__ == "__main__":
 	pass

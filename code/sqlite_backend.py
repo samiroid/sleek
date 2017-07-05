@@ -113,7 +113,7 @@ def add_user(DB_path, user_id):
 
 def create_survey(DB_path, survey):
 	table_name = "survey_"+survey["survey_id"]	
-	fields = ["user_id","ts"] + [q["id"] for q in survey["survey"] ]	
+	fields = ["user_id","notes","ts"] + [q["id"] for q in survey["survey"] ]	
 	try:
 		__put(DB_path, "surveys", {"id":survey["survey_id"],"survey":json.dumps(survey)})
 	except sqlite3.IntegrityError: 

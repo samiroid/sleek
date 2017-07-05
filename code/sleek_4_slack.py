@@ -32,16 +32,19 @@ class Sleek4Slack(Sleek):
 	sleek_help = '''  This a list of the commands I understand:				      
 >>> 
 - `delete` `<SURVEY_ID>` | `all` : delete all the answers to survey `<SURVEY_ID>` (or all)
-- `join` `<SURVEY_ID>` `[HH:MM (AM|PM)]` `[HH:MM (AM|PM)]` join survey:  `<SURVEY_ID>` and (optionally) set reminders: e.g., _join stress 9:00AM 2:00PM_ 
-- `leave` `<SURVEY_ID>`: to leave survey `<SURVEY_ID>`
+- `join` `<SURVEY_ID>` `[HH:MM (AM|PM)]`: join survey `<SURVEY_ID>` and (optionally) set reminders: e.g., _join stress 9:00AM 2:00PM_ 
+- `leave` `<SURVEY_ID>`: leave survey `<SURVEY_ID>`
 - `list`: see a list of surveys
-- `report` `<SURVEY_ID>`: to see a report with all the answers to survey `<SURVEY_ID>`
+- `report` `<SURVEY_ID>`: see previous answers to survey `<SURVEY_ID>`
 - `survey` `<SURVEY_ID>`: answer to survey `<SURVEY_ID>`
+- `reminder` `<SURVEY_ID>` `HH:MM (AM|PM)`: set reminders for survey `<SURVEY_ID>`
+- `reminder remove` `<SURVEY_ID>`: remove reminders for survey `<SURVEY_ID>`
+
 
 '''
 #- `pause/resume`: pause/resume data collection
 #- `upload`: to upload a new survey 
-#- `remind` <survey_id>: set a reminder for survey <survey_id>
+
 	default_cfg={
 				"announce": sleek_announce,				
 				"help": sleek_help,
@@ -65,10 +68,16 @@ class Sleek4Slack(Sleek):
 	###### ------ PRIVATE METHODS		
 
 	def __display_answer(self, a):		
-		#del a["ts"]
-		#del a["user_id"]
-		ans = "\n".join(["*{}*: {}".format(f,v) for f,v in a.items()])
-		out = "Your answers\n>>>{}".format(ans)
+		
+		notes = None
+		if "notes" in a:
+			notes = a["notes"]
+
+		ans = "\n".join(["*{}*: {}".format(f,v) for f,v in a.items() if f!="notes"])
+		if notes is not None:
+			out = "Your answers\n>>>{}\n_notes_:```{}```".format(ans,notes)
+		else:
+			out = "Your answers\n>>>{}".format(ans)
 		return out
 		
 
@@ -88,9 +97,9 @@ class Sleek4Slack(Sleek):
 		out = "*report _{}_*\n\n```{}```"
 		s = self.current_surveys[survey_id]["survey"]
 
-		df = pd.DataFrame(report).iloc[:,2:]
+		df = pd.DataFrame(report).iloc[:,3:]
 		df.columns = ["ts"] + [q["id"] for q in s]		
-		df['ts'] = pd.to_datetime(df['ts'], unit='s')
+		#df['ts'] = pd.to_datetime(df['ts']).dt.strftime("%Y-%M-%d %H:%M")
 		df.set_index('ts', inplace=True)	
 		
 		return out.format(survey_id.upper(), repr(df))	
@@ -102,6 +111,27 @@ class Sleek4Slack(Sleek):
 		ot = [inactive.format(s) for s in other_surveys]
 		display = "*Your Surveys*\n{}\n{}"
 		return display.format("\n".join(us),"\n".join(ot))
+
+	def __get_times(self, tokens):
+		am_reminder = None
+		pm_reminder = None
+		for t in tokens[1:]:
+			if "am" in t:
+				try:
+					_ = datetime.strptime(t , '%I:%M%p').time()
+					am_reminder = t
+				except ValueError:
+					raise RuntimeError(status.INVALID_TIME.format(t))
+			elif "pm" in t:
+				try:
+					_ = datetime.strptime(t , '%I:%M%p').time()
+					pm_reminder = t
+				except ValueError:
+					raise RuntimeError(status.INVALID_TIME.format(t))
+			else:
+				pass
+		return am_reminder, pm_reminder
+
 
 	def __list_surveys(self, user_id):				
 		us = backend.list_surveys(self.DB_path, user_id)		
@@ -146,7 +176,7 @@ class Sleek4Slack(Sleek):
 		
 		# ---- JOIN SURVEY ----
 		elif action == "join":			
-			if len(tokens) < 4: return status.MISSING_PARAMS
+			if len(tokens) < 2: return status.MISSING_PARAMS
 			return self.join_survey(tokens, context)
 
 		# ---- LEAVE SURVEY ----
@@ -164,8 +194,8 @@ class Sleek4Slack(Sleek):
 			return self.report(tokens, context)			
 		
 		# ---- SCHEDULE SURVEY ----
-		elif action == "remind":	
-			if len(tokens) < 4: return status.MISSING_PARAMS											
+		elif action == "reminder":	
+			if len(tokens) < 3: return status.MISSING_PARAMS											
 			return self.remind_survey(tokens, context)
 
 		# ---- ANSWER SURVEY ----
@@ -224,11 +254,16 @@ class Sleek4Slack(Sleek):
 					if tokens[0] == "cancel":
 						#remove current thread from open survey threads
 						del self.survey_threads[thread_ts]
-						reply = status.SURVEY_CANCELED
+						reply = [self.ack(), status.SURVEY_CANCELED]
 					elif tokens[0] == "ok":
 						reply = self.save_answer(thread_ts, ts)
 					elif tokens[0] == "notes":
-						reply = "Soon you will be able to add a note to this response" 
+						open_user, open_survey, response = self.survey_threads[thread_ts] 
+						#add a placeholder for the notes on the response
+						# set_trace()
+						response["notes"]=""
+						self.survey_threads[thread_ts] = (open_user, open_survey, response)
+						reply = [self.ack(), status.ANSWERS_ADD_NOTE]						
 					else:
 			   			reply = self.get_answer(thread_ts, text)			   			
 				#or messages directed at the bot						   	
@@ -254,28 +289,33 @@ class Sleek4Slack(Sleek):
 
 	###### ------ BOT ACTION METHODS
 	def get_answer(self, survey_thread, text):
+		open_user, open_survey, open_response = self.survey_threads[survey_thread]
+		print open_response
+		# set_trace()
 
-		open_user, open_survey, _ = self.survey_threads[survey_thread]
-
-		questions = self.current_surveys[open_survey]["survey"]		
-		#assumes responses are separated by white spaces		
-		try:
-			answers = [int(a) for a in text.split()]
-		except ValueError:
-			return status.ANSWERS_INVALID
-		#incorrect number of answers
-		if len(answers) > len(questions):
-			return status.ANSWERS_TOO_MANY.format(len(questions), len(answers))		
-		elif len(answers) < len(questions):
-			return status.ANSWERS_TOO_FEW.format(len(questions), len(answers))		
-		response = {}
-		for q, a in zip(questions, answers):
-			q_id = q["id"]
-			choices = q["choices"]
-			if a not in range(len(choices)):
-				return status.ANSWERS_BAD_CHOICE.format(q["id"])
-			else:
-				response[q_id] = choices[a]
+		if open_response is not None and "notes" in open_response:
+			response = open_response
+			response["notes"] = text
+		else:
+			questions = self.current_surveys[open_survey]["survey"]		
+			#assumes responses are separated by white spaces		
+			try:
+				answers = [int(a) for a in text.split()]
+			except ValueError:
+				return status.ANSWERS_INVALID
+			#incorrect number of answers
+			if len(answers) > len(questions):
+				return status.ANSWERS_TOO_MANY.format(len(questions), len(answers))		
+			elif len(answers) < len(questions):
+				return status.ANSWERS_TOO_FEW.format(len(questions), len(answers))		
+			response = {}
+			for q, a in zip(questions, answers):
+				q_id = q["id"]
+				choices = q["choices"]
+				if a not in range(len(choices)):
+					return status.ANSWERS_BAD_CHOICE.format(q["id"])
+				else:
+					response[q_id] = choices[a]
 		# set_trace()
 		self.survey_threads[survey_thread] = (open_user, open_survey, response)		
 		return [self.__display_answer(response), status.ANSWERS_CONFIRM]
@@ -314,7 +354,7 @@ class Sleek4Slack(Sleek):
 		#register this thread as an open survey
 		self.survey_threads[context["thread_ts"]] = (user_id, survey_id, None)
 		s = self.current_surveys[survey_id]
-		if display: return self.__display_survey(s)
+		if display: return [self.ack(),self.__display_survey(s)]
 		else:       return s
 
 	def join_survey(self, tokens, context):
@@ -342,30 +382,9 @@ class Sleek4Slack(Sleek):
 		rep = ""
 		if len(tokens) > 2:
 			rep = self.remind_survey(tokens, context)
-			return status.SURVEY_JOIN_OK.format(survey_id)+"\n"+rep
-		return status.SURVEY_JOIN_OK.format(survey_id)
+			return [self.ack(), status.SURVEY_JOIN_OK.format(survey_id.upper()), rep]
+		return [self.ack(), status.SURVEY_JOIN_OK.format(survey_id.upper())]
 		
-		#set reminders		
-		# 
-		# ok=True
-		# if am_reminder is not None: 
-		# 	if not backend.set_reminder(self.DB_path, user_id, survey_id, "am", am_reminder):
-		# 		rep += "\n"+status.REMINDER_FAIL.format(survey_id)
-		# 		ok=False	
-		# if ok and pm_reminder is not None:
-		# 	#try to set a reminder			 
-		# 	if not backend.set_reminder(self.DB_path, user_id, survey_id, "pm", pm_reminder):
-		# 		rep += "\n"+status.REMINDER_FAIL.format(survey_id)
-		# 		ok=False	
-		# if ok:
-		# 	if am_reminder is not None and pm_reminder is not None:
-		# 		rep += "\n"+status.REMINDER_OK_2.format(survey_id, am_reminder,pm_reminder)
-		# 	elif am_reminder is not None:					
-		# 		rep += "\n"+status.REMINDER_OK.format(survey_id, am_reminder)
-		# 	elif pm_reminder is not None:				
-		# 		rep += "\n"+status.REMINDER_OK.format(survey_id, pm_reminder)
-		# return rep
-
 	def leave_survey(self, tokens, context):
 		user_id = context["user_id"]
 		survey_id = tokens[1]		
@@ -380,7 +399,7 @@ class Sleek4Slack(Sleek):
 		if not backend.leave_survey(self.DB_path, user_id, survey_id):
 			return status.SURVEY_LEAVE_FAIL.format(survey_id.upper())
 		
-		return status.SURVEY_LEAVE_OK.format(survey_id.upper())
+		return [self.ack(), status.SURVEY_LEAVE_OK.format(survey_id.upper())]
 
 	def show_surveys(self, tokens, context):	
 		user_id = context["user_id"]
@@ -397,47 +416,20 @@ class Sleek4Slack(Sleek):
 			rep = backend.get_report(self.DB_path, user_id, survey_id)
 			if len(rep) == 0:
 				return status.REPORT_EMPTY.format(survey_id.upper())
-			return self.__display_report(survey_id, rep)
+			return [self.ack(), self.__display_report(survey_id, rep)]
 		except RuntimeError as e:
 			return status.REPORT_FAIL.format(survey_id.upper()) + " [err: {}]".format(str(e))			 	
-
-	# def remind_survey(self, tokens, context):
-	# 	user_id = context["user_id"]				
-	# 	err = ""		
-	# 	survey_id = tokens[1]						
-	# 	#validate schedule		
-	# 	am_check, err = self.__get_time(tokens[2], "am")		
-	# 	if am_check is None: return err
-	# 	pm_check, err = self.__get_time(tokens[3], "pm")		
-	# 	if pm_check is None: return err				
-	# 	try:				
-	# 		backend.schedule_survey(self.DB_path, user_id, survey_id, am_check, pm_check)
-	# 	except RuntimeError as e:			
-	# 		return status.SURVEY_REMIND_FAIL.format(survey_id.upper()) + " [err: {}]".format(str(e))
-	# 	return status.SURVEY_REMIND_OK.format(survey_id,am_check,pm_check)
-	def __get_times(self, tokens):
-		am_reminder = None
-		pm_reminder = None
-		for t in tokens[1:]:
-			if "am" in t:
-				try:
-					_ = datetime.strptime(t , '%I:%M%p').time()
-					am_reminder = t
-				except ValueError:
-					raise RuntimeError(status.INVALID_TIME.format(t))
-			elif "pm" in t:
-				try:
-					_ = datetime.strptime(t , '%I:%M%p').time()
-					pm_reminder = t
-				except ValueError:
-					raise RuntimeError(status.INVALID_TIME.format(t))
-			else:
-				pass
-		return am_reminder, pm_reminder
 
 	def remind_survey(self, tokens, context):
 		user_id = context["user_id"]				
 		survey_id = tokens[1]
+		if survey_id == "remove":
+			survey_id = tokens[2]
+			if not backend.set_reminder(self.DB_path, user_id, survey_id, "pm", None):
+				return status.REMINDER_FAIL.format(survey_id)
+			if not backend.set_reminder(self.DB_path, user_id, survey_id, "am", None):
+				return status.REMINDER_FAIL.format(survey_id)
+			return [self.ack(), status.REMINDER_REMOVE_OK.format(survey_id)]
 		try:
 			am_reminder, pm_reminder = self.__get_times(tokens)
 		except RuntimeError as e:
@@ -451,15 +443,14 @@ class Sleek4Slack(Sleek):
 				return status.REMINDER_FAIL.format(survey_id)
 		
 		if am_reminder is not None and pm_reminder is not None:
-			return status.REMINDER_OK_2.format(survey_id, am_reminder,pm_reminder)
+			return [self.ack(), status.REMINDER_OK_2.format(survey_id, am_reminder,pm_reminder)]
 		elif am_reminder is not None:					
-			return status.REMINDER_OK.format(survey_id, am_reminder)
+			return [self.ack(), status.REMINDER_OK.format(survey_id, am_reminder)]
 		elif pm_reminder is not None:				
-			return status.REMINDER_OK.format(survey_id, pm_reminder)
+			return [self.ack(), status.REMINDER_OK.format(survey_id, pm_reminder)]
 		else:
-			raise NotImplementedError
-		
-
+			return status.REMINDER_FAIL.format(survey_id)
+	
 	def upload_survey(self, survey):
 		"""
 			Create a survey
