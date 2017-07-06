@@ -146,6 +146,13 @@ def get_report(DB_path, user_id, survey_id):
 	sql = '''SELECT * FROM {} WHERE user_id=? order by ts DESC'''.format(survey_table)
 	return __get(DB_path, sql,(user_id,))
 
+def get_notes(DB_path, user_id, survey_id):
+	survey_table = "survey_{}".format(survey_id)
+	if not __table_exists(DB_path, survey_table):
+		raise RuntimeError("survey does not exist")
+	sql = '''SELECT ts, notes FROM {} WHERE user_id=? AND notes IS NOT NULL order by ts DESC'''.format(survey_table)
+	return __get(DB_path, sql,(user_id,))
+
 def get_response(DB_path, user_id, survey_id, response_id):
 	sql = '''SELECT * FROM survey_{} WHERE user_id=? AND id=?'''.format(survey_id)	
 	resp = __get(DB_path, sql,(user_id,response_id,))
