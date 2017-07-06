@@ -1,3 +1,4 @@
+from apscheduler.schedulers.background import BackgroundScheduler
 from collections import deque, defaultdict
 from datetime import datetime
 from ipdb import set_trace
@@ -39,9 +40,8 @@ class Sleek4Slack(Sleek):
 - `survey` `<SURVEY_ID>`: answer to survey `<SURVEY_ID>`
 - `reminder` `<SURVEY_ID>` `HH:MM (AM|PM)`: set reminders for survey `<SURVEY_ID>`
 - `reminder remove` `<SURVEY_ID>`: remove reminders for survey `<SURVEY_ID>`
-
-
 '''
+
 #- `pause/resume`: pause/resume data collection
 #- `upload`: to upload a new survey 
 
@@ -63,9 +63,60 @@ class Sleek4Slack(Sleek):
 		#{thread_id:(user_id, survey_id, response)}
 		self.survey_threads = {}				
 		self.slack_client = None
-		self.bot_id = None	
+		#{(user_id, survey_id):{"am":reminder_am, "pm":reminder_pm}}
+		self.reminders = defaultdict(dict)
+		#reminder scheduler
+		self.scheduler = BackgroundScheduler()
+		self.scheduler.start()
+		self.load_reminders()
+
+		#self.bot_id = None	
 
 	###### ------ PRIVATE METHODS		
+	def send_reminder(self, user_id, survey_id, period):
+		self.post_channel(user_id, status.REMIND_SURVEY.format(survey_id,period))				
+
+	def __set_reminder(self, user_id, survey_id, ts):		
+		print "[setting reminder @{} ({}): {}]".format(user_id, survey_id, ts)
+		#if ts is None remove the reminder		
+ 		if ts is None:
+			try:
+				for job in self.reminders[(user_id,survey_id)].values():
+					job.remove()
+			except KeyError:
+				pass
+		else:
+			if "am" in ts:
+				period = "am"				
+			elif "pm" in ts:
+				period = "pm"
+			else:
+				raise NotImplementedError
+			ts = ts.replace(period,"")
+			hour, minute = [int(t) for t in ts.split(":")]	
+			if period == "pm":
+				hour+=12
+			if hour is not None: 				
+				try:
+					job = self.reminders[(user_id,survey_id)][period]					
+					job.reschedule(trigger='cron', hour=hour, minute=minute)					
+				except KeyError:						
+					job = self.scheduler.add_job(self.send_reminder, 
+												 args=[user_id,survey_id.upper(), period.upper()],
+												 trigger='cron', hour=hour, minute=minute)
+					self.reminders[(user_id,survey_id)][period] = job
+
+	def load_reminders(self):
+		data = backend.get_survey_reminders(self.DB_path)
+		#user_id, survey_id, am_check, pm_check
+		print "loading reminders"
+		for d in data:
+			print d
+			user_id, survey_id, am_check, pm_check = d			
+			if am_check is not None:
+				self.__set_reminder(user_id, survey_id, am_check)				
+			if pm_check is not None:
+				self.__set_reminder(user_id, survey_id, pm_check)				
 
 	def __display_answer(self, a):		
 		
@@ -293,13 +344,17 @@ class Sleek4Slack(Sleek):
 		print open_response
 		# set_trace()
 
+		#case where the user already answered the questions and 
+		#chose to add notes
 		if open_response is not None and "notes" in open_response:
 			response = open_response
 			response["notes"] = text
 		else:
+			#otherwise these should be answers to the survey
 			questions = self.current_surveys[open_survey]["survey"]		
 			#assumes responses are separated by white spaces		
 			try:
+				#answers are indices into a list of choices
 				answers = [int(a) for a in text.split()]
 			except ValueError:
 				return status.ANSWERS_INVALID
@@ -308,6 +363,7 @@ class Sleek4Slack(Sleek):
 				return status.ANSWERS_TOO_MANY.format(len(questions), len(answers))		
 			elif len(answers) < len(questions):
 				return status.ANSWERS_TOO_FEW.format(len(questions), len(answers))		
+			#response dictionary
 			response = {}
 			for q, a in zip(questions, answers):
 				q_id = q["id"]
@@ -315,8 +371,8 @@ class Sleek4Slack(Sleek):
 				if a not in range(len(choices)):
 					return status.ANSWERS_BAD_CHOICE.format(q["id"])
 				else:
-					response[q_id] = choices[a]
-		# set_trace()
+					response[q_id] = choices[a]		
+		#cache this response
 		self.survey_threads[survey_thread] = (open_user, open_survey, response)		
 		return [self.__display_answer(response), status.ANSWERS_CONFIRM]
 
@@ -425,24 +481,27 @@ class Sleek4Slack(Sleek):
 		user_id = context["user_id"]				
 		survey_id = tokens[1]
 		if survey_id == "remove":
-			survey_id = tokens[2]
-			if not backend.set_reminder(self.DB_path, user_id, survey_id, "pm", None):
+			survey_id = tokens[2]			
+			#remove reminder schedule 
+			if not backend.set_reminder(self.DB_path, user_id, survey_id, None):
 				return status.REMINDER_FAIL.format(survey_id)
-			if not backend.set_reminder(self.DB_path, user_id, survey_id, "am", None):
-				return status.REMINDER_FAIL.format(survey_id)
-			return [self.ack(), status.REMINDER_REMOVE_OK.format(survey_id)]
+			#remove reminder triggers
+			self.__set_reminder(user_id, survey_id, None)			
+			return [self.ack(), status.REMINDER_REMOVE_OK.format(survey_id)]		
 		try:
+			#parse reminder times
 			am_reminder, pm_reminder = self.__get_times(tokens)
 		except RuntimeError as e:
 			return str(e)		
-		if am_reminder is not None: 
-			if not backend.set_reminder(self.DB_path, user_id, survey_id, "am", am_reminder):
-				return status.REMINDER_FAIL.format(survey_id)				
-		if pm_reminder is not None:
-			#try to set a reminder			 
-			if not backend.set_reminder(self.DB_path, user_id, survey_id, "pm", pm_reminder):
-				return status.REMINDER_FAIL.format(survey_id)
-		
+		#set new reminders
+		for reminder in [am_reminder,pm_reminder]:	
+			if reminder is not None: 
+				#save new reminder schedule
+				if not backend.set_reminder(self.DB_path, user_id, survey_id, reminder):
+					return status.REMINDER_FAIL.format(survey_id)	
+				#set new reminder trigger
+				self.__set_reminder(user_id, survey_id, reminder)					
+
 		if am_reminder is not None and pm_reminder is not None:
 			return [self.ack(), status.REMINDER_OK_2.format(survey_id, am_reminder,pm_reminder)]
 		elif am_reminder is not None:					

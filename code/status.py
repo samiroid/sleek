@@ -30,7 +30,7 @@ REMINDER_OK = "I will remind you to take the survey _{}_ at `{}`"
 REMINDER_OK_2 = "I will remind you to take the survey _{}_ at `{}` and again at `{}`"	
 REMINDER_FAIL = "could not set reminder for survey _{}_"
 REMINDER_REMOVE_OK = "I will stop the reminders for survey _{}_"
-
+REMIND_SURVEY = "Psst! Don't forget to take the survey _{}_ ({}) :wink:" 
 #report
 REPORT_FAIL = "could not retrieve report for survey _{}_"
 REPORT_EMPTY = "you have not answered to survey _{}_ yet"

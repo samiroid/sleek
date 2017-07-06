@@ -161,6 +161,10 @@ def get_survey(DB_path, survey_id):
 		return json.loads(x[0][0])
 	return None
 
+def get_survey_reminders(DB_path):
+	sql = '''SELECT * FROM user_surveys'''
+	return  __get(DB_path, sql)
+	
 def join_survey(DB_path, user_id, survey_id):	
 	if not __table_exists(DB_path, "survey_"+survey_id):
 		raise RuntimeError("survey {} not found".format(survey_id))
@@ -184,14 +188,16 @@ def leave_survey(DB_path, user_id, survey_id):
 	sql = '''DELETE FROM user_surveys WHERE user_id=? and survey_id=?'''.format(survey_id)
 	return __update(DB_path, sql, (user_id, survey_id)) > 0
 
-def set_reminder(DB_path, user_id, survey_id, period, reminder):
-	if period.lower()=="am":
+def set_reminder(DB_path, user_id, survey_id, schedule):
+	if schedule is None:
+		sql = '''UPDATE user_surveys SET am_check=NULL, pm_check=NULL WHERE user_id=? AND survey_id=?'''
+	elif "am" in schedule:
 		sql = '''UPDATE user_surveys SET am_check=? WHERE user_id=? AND survey_id=?'''
-	elif period.lower()=="pm":
+	elif "pm" in schedule:
 		sql = '''UPDATE user_surveys SET pm_check=? WHERE user_id=? AND survey_id=?'''
 	else:
 		raise NotImplementedError
-	return __update(DB_path, sql, (reminder, user_id, survey_id))	
+	return __update(DB_path, sql, (schedule, user_id, survey_id))	
 
 def toggle_user(DB_path, user_id, active=True):
 	sql = '''UPDATE users SET active=? WHERE id=?'''
