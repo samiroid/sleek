@@ -443,10 +443,13 @@ class Sleek4Slack(Sleek):
 				return status.SURVEY_JOIN_FAIL.format(survey_id.upper())
 		except RuntimeError as e:			
 			return status.SURVEY_JOIN_FAIL.format(survey_id.upper()) + " [err: {}]".format(str(e))		
-		rep = ""
+		
 		if len(tokens) > 2:
 			rep = self.remind_survey(tokens, context)
-			return [self.ack(), status.SURVEY_JOIN_OK.format(survey_id.upper()), rep]
+			if type(rep) == list:				
+				return [self.ack(), status.SURVEY_JOIN_OK.format(survey_id.upper()), rep[1]]
+			else:
+				return [self.ack(), status.SURVEY_JOIN_OK.format(survey_id.upper()), rep]
 		return [self.ack(), status.SURVEY_JOIN_OK.format(survey_id.upper())]
 		
 	def leave_survey(self, tokens, context):
