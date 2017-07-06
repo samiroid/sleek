@@ -531,8 +531,8 @@ class Sleek4Slack(Sleek):
 			survey: survey
 		"""		
 		try:
-			backend.create_survey(self.DB_path, survey)			
-			self.__retrieve_surveys()
+			backend.create_survey(self.DB_path, survey)		
+			self.current_surveys = {x[0]:json.loads(x[1]) for x in backend.list_surveys(self.DB_path)}			
 			return True
 		except RuntimeError:
 			return False
