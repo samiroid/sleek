@@ -69,7 +69,7 @@ class Sleek4Slack(Sleek):
 			print "[created backend @ {}]".format(DB_path)		
 		Sleek.__init__(self, cfg)
 		self.DB_path = DB_path		
-		self.users = {x[0]:None for x in backend.get_users(self.DB_path)}		
+		#self.users = {x[0]:None for x in backend.get_users(self.DB_path)}		
 		#{survey_id:survey}
 		self.current_surveys = {x[0]:json.loads(x[1]) for x in backend.list_surveys(self.DB_path)}				
 		#{(user_id, survey_id):{"am":reminder_am, "pm":reminder_pm}}		
@@ -265,9 +265,11 @@ class Sleek4Slack(Sleek):
 	def connect(self, api_token, greet=False, greet_channel="#general"):
 		self.slack_client = SlackClient(api_token)				
 		#open direct messages
-		dms = {u:self.open_dm(u) for u in self.users.keys()}
-		self.users = dms
-		self.open_dms = {dm:u for u,dm in self.users.items()}
+		#dms = {u:self.open_dm(u) for u in self.users.keys()}
+		#self.users = dms
+		slackers = self.get_slack_members()
+		# set_trace()
+		self.direct_messages = {self.open_dm(u):u for u in slackers.values() if u is not None}
  		if greet: 
  			self.post(greet_channel, self.greet())
  			self.post(greet_channel, self.announce()) 			
@@ -321,7 +323,13 @@ class Sleek4Slack(Sleek):
 					else:
 			   			reply = self.get_answer(thread_ts, text)			   			
 				#or messages directed at the bot						   	
-				elif hat_bot in text or channel in self.open_dms:			   						
+				elif hat_bot in text or channel in self.direct_messages:
+					#if user is not talking on a direct message with sleek
+					#open a new one, and reply there
+					if channel not in self.direct_messages:
+						channel = self.open_dm(user)
+						#self.users[user] = channel
+						self.direct_messages[channel] = user
 					#remove bot mention
 			   		text = text.replace(hat_bot,"").strip()			   					   		
 			   		if dbg:
@@ -553,6 +561,21 @@ class Sleek4Slack(Sleek):
 	  					 text=message)
 		
 		if not resp.get("ok"): print "\033[31m[error: {}]\033[0m".format(resp["error"])
+
+	def get_slack_members(self):
+		resp = self.slack_client.api_call("users.list")
+		users = {}
+		if resp.get('ok'):
+			# retrieve all users
+			members = resp.get('members')
+			for user in members:
+				#ignore slackbot
+				if 'name' not in user or user.get('id') == "USLACKBOT": continue				
+				users[user.get('name')] = user.get('id')							
+		else:
+			raise RuntimeError("Could not retrieve members list\n{}".format(resp))
+		print users
+		return users
 
 	def open_dm(self, user):
 		resp = self.slack_client.api_call("im.open", user=user)
