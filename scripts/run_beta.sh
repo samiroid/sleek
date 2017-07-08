@@ -1,7 +1,7 @@
 #load surveys
-API_TOKEN=$SLEEK_DEV_TOKEN
+API_TOKEN=$SLEEK_BETA_TOKEN
 BOT_NAME=sleek
-CONFIG=DATA/confs/dev.cfg
+CONFIG=DATA/confs/beta.cfg
 
 INIT=0
 if (($INIT == 1 )); then
