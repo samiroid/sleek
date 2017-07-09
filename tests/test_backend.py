@@ -1,15 +1,20 @@
-import os
-import pytest
-from backend import Backend
-import sqlite3
+from ipdb import set_trace
 import json
+import pytest
+import sys
+import sqlite3
+sys.path.append("src")
+from src.backend import Backend
+
 
 DB_path="DATA/test.db"
+
 cfg = {
-		"local_DB":DB_path,
-		"bot_id":"U5T7Z7ZPV"
+		"local_DB":DB_path
 		}
+
 user_id="SILVIO"
+
 sleep_survey = { "id": "sleep",
 	 				  "questions": [  { "q_id": "sleep_hours",
 	       							  	"question": "how many hours have you slept yesterday?",
@@ -41,7 +46,7 @@ def __table_exists(table_name):
 # USER METHODS
 #################################################################
 def test_add_user():
-	#create DB
+	#create DB	
 	my_backend = Backend(cfg, create=True)
 	#make sure user does not exist	
 	assert my_backend.get_users(user_id=user_id) == []

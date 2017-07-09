@@ -9,7 +9,7 @@ import json
 import pprint
 import pandas as pd
 from slackclient import SlackClient
-import backend
+from backend import Backend
 from sleek import Sleek
 import status
 import time
@@ -62,8 +62,8 @@ class Sleek4Slack(Sleek):
 				"nack": ["sorry, I didn't get that", "I don't understand that command","!?"]
 				}
 
-	def __init__(self, db, cfg=default_cfg):		
-		assert type(db) == backend.Backend
+	def __init__(self, db, cfg=default_cfg):				
+		assert isinstance(db, Backend)
 		self.backend = db
 		Sleek.__init__(self, cfg)		
 		#{survey_id:survey}

@@ -1,22 +1,20 @@
 from ipdb import set_trace
 import json
-import os
 import pytest
-from backend import Backend
-from sleek import Sleek
-from sleek_4_slack import Sleek4Slack
-import status
 from datetime import datetime
+import sys
 
-DB_path="DATA/test_slack.db"
+sys.path.append("src")
+from src.backend import Backend
+from src.sleek import Sleek
+from src.sleek_4_slack import Sleek4Slack
+import src.status as status
 
 back_cfg = {
-		"local_DB":DB_path,
-		"bot_id":"U5T7Z7ZPV"
+		"local_DB":"DATA/test_slack.db"
 		}
 
 user_id="SILVIO"
-api_token = os.environ.get('SLACK_BOT_TOKEN')
 some_user="U5TCJ682Z"
 context = {"user_id":some_user,"ts":1,"thread_ts":2}
 
@@ -107,35 +105,35 @@ def test_join():
 	#join survey with AM reminder
 	ret = sleek.join(["join",survey_id, am_check], context)	
 	assert status.SURVEY_JOIN_OK.format(survey_id.upper()) == ret[1]			
-	assert status.REMINDER_OK.format(survey_id.upper(), am_check) == ret[2]
+	assert status.REMINDER_OK.format(survey_id.upper(), am_check.upper()) == ret[2]
 	data = my_backend.list_surveys(some_user)[0]
 	assert data[0] == some_user
 	assert data[1] == survey_id
-	assert data[2] == am_check
+	assert data[2] == am_check.upper()
 	assert data[3] == None
 	my_backend.leave_survey(some_user, survey_id)
 
 	#join survey with PM reminder
 	ret = sleek.join(["join",survey_id, pm_check], context)	
 	assert status.SURVEY_JOIN_OK.format(survey_id.upper()) == ret[1]	
-	assert status.REMINDER_OK.format(survey_id.upper(), pm_check) == ret[2]	
+	assert status.REMINDER_OK.format(survey_id.upper(), pm_check.upper()) == ret[2]	
 	data = my_backend.list_surveys(some_user)[0]	
 	assert data[0] == some_user
 	assert data[1] == survey_id
 	assert data[2] == None
-	assert data[3] == pm_check
+	assert data[3] == pm_check.upper()
 	my_backend.leave_survey(some_user, survey_id)
 
 	#join survey with both reminders
 	ret = sleek.join(["join",survey_id, pm_check, am_check], context)
 	assert status.SURVEY_JOIN_OK.format(survey_id.upper()) == ret[1]	
-	assert status.REMINDER_OK_2.format(survey_id.upper(), am_check, 
-												  pm_check) == ret[2]		
+	assert status.REMINDER_OK_2.format(survey_id.upper(), am_check.upper(), 
+												  pm_check.upper()) == ret[2]		
 	data = my_backend.list_surveys(some_user)[0]
 	assert data[0] == some_user
 	assert data[1] == survey_id
-	assert data[2] == am_check
-	assert data[3] == pm_check
+	assert data[2] == am_check.upper()
+	assert data[3] == pm_check.upper()
 	my_backend.leave_survey(some_user, survey_id)
 
 def test_leave():
@@ -174,7 +172,7 @@ def test_reminder():
 	my_backend.create_survey(sleep_survey)	
 	sleek = Sleek4Slack(my_backend)		
 	am_check = "10:00am"
-	pm_check = "5:00pm"
+	pm_check = "05:00pm"
 	#join survey
 	ret = sleek.join(["join",survey_id], context)	
 	data = my_backend.list_surveys(some_user)[0]
@@ -184,8 +182,8 @@ def test_reminder():
 	assert data[3] == None
 
 	#try to reschedule
-	new_am_check="6:00am"
-	new_pm_check="6:20pm"
+	new_am_check="06:00am"
+	new_pm_check="06:20pm"
 	bad_am="6:am"
 	bad_pm=":20pm"
 	#bad inputs
@@ -207,30 +205,30 @@ def test_reminder():
 	
 	#new am reminder
 	ret = sleek.reminder(["reminder",survey_id, new_am_check], context) 
-	assert status.REMINDER_OK.format(survey_id.upper(), new_am_check) == ret[1]
+	assert status.REMINDER_OK.format(survey_id.upper(), new_am_check.upper()) == ret[1]
 	data = my_backend.list_surveys(some_user)[0]
 	assert data[0] == some_user
 	assert data[1] == survey_id
-	assert data[2] == new_am_check
+	assert data[2] == new_am_check.upper()
 	assert data[3] == None
 
 	#new pm reminder
 	ret = sleek.reminder(["reminder",survey_id, new_pm_check], context) 
-	assert status.REMINDER_OK.format(survey_id.upper(), new_pm_check) == ret[1]
+	assert status.REMINDER_OK.format(survey_id.upper(), new_pm_check.upper()) == ret[1]
 	data = my_backend.list_surveys(some_user)[0]
 	assert data[0] == some_user
 	assert data[1] == survey_id
-	assert data[2] == new_am_check
-	assert data[3] == new_pm_check
+	assert data[2] == new_am_check.upper()
+	assert data[3] == new_pm_check.upper()
 
 	#old reminders
 	ret = sleek.reminder(["reminder",survey_id, am_check, pm_check], context) 
-	assert status.REMINDER_OK_2.format(survey_id.upper(), am_check, pm_check) == ret[1]
+	assert status.REMINDER_OK_2.format(survey_id.upper(), am_check.upper(), pm_check.upper()) == ret[1]
 	data = my_backend.list_surveys(some_user)[0]
 	assert data[0] == some_user
 	assert data[1] == survey_id
-	assert data[2] == am_check
-	assert data[3] == pm_check
+	assert data[2] == am_check.upper()
+	assert data[3] == pm_check.upper()
 
 def test_report_and_delete():
 	my_backend = Backend(back_cfg, create=True)		

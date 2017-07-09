@@ -2,7 +2,8 @@ MISSING_PARAMS = u"I think you forgot some parameters :thinking_face:"
 OK = u"OK :+1:"
 PLEASE_SUBSCRIBE = u"if you want to participate in this survey, use the `join` command to subscribe"
 INVALID_TIME = u"invalid time: `{}`"
-GREET_USER = u"{} {} :wave: Let's talk in private :wink:"
+GREET_USER = u":wave: {} {}! Let's talk in private :wink:"
+
 #answers
 ANSWERS_TOO_FEW = u"Hey...I think you forgot to enter some answers. I was expecting *{}* answers but only got *{}*."
 ANSWERS_TOO_MANY = u"Whoa! You entered too many answers. I was expecting *{}* answers but you entered *{}*."
@@ -11,7 +12,7 @@ ANSWERS_BAD_CHOICE = u"invalid choice for question *{}* :confused:"
 ANSWERS_SAVE_OK = u"answer saved :+1:"
 ANSWERS_SAVE_FAIL = u"error saving answer :cold_sweat:"
 ANSWERS_CONFIRM = u"If you are happy with your reponses hit `ok`, otherwise enter a new response. \nType `notes` to add a short note to this answer. \nYou can also `cancel` this answer. "
-ANSWERS_DELETE_OK = u"All your answers to the _{}_ survey are gone :skull:"	
+ANSWERS_DELETE_OK = u"All your answers to the _{}_ survey are gone"	
 ANSWERS_DELETE_FAIL = u"I could not delete your _{}_ survey answers :cold_sweat:"
 ANSWERS_ADD_NOTE = u":writing_hand: enter a short note about your survey"
 
