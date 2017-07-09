@@ -10,7 +10,7 @@ try:
 except ImportError:
 	from pdb import set_trace
 
-class Backend(object):
+class LocalBackend(object):
 	#user table columns
 	USER_ID = 0
 	USER_ACTIVE = 1

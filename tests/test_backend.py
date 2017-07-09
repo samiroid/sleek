@@ -3,8 +3,8 @@ import json
 import pytest
 import sys
 import sqlite3
-sys.path.append("src")
-from src.backend import Backend
+sys.path.append("sleek")
+from sleek.backend import LocalBackend as Backend
 
 
 DB_path="DATA/test.db"

@@ -1,9 +1,9 @@
 import argparse
-from backend import Backend
 import json
-from slackclient import SlackClient
-import sleek_4_slack as sleek
+from sleek.slack import Sleek4Slack
+from sleek.backend import LocalBackend
 import os
+
 try:
 	from ipdb import set_trace
 except ImportError:
@@ -14,6 +14,7 @@ def load_surveys(backend, survey_path):
 		Loads surveys in batch mode
 		survey_path: path to folder containing surveys in json format
 	"""
+	print "[loading surveys @ {}]".format(survey_path)
 	ignored = []
 	for fname in os.listdir(survey_path):	
 		path = survey_path+fname
@@ -45,20 +46,20 @@ if __name__ == "__main__":
 	parser = get_parser()
 	args = parser.parse_args()	
 	confs = json.load(open(args.cfg, 'r'))	 	
+
 	if args.init:
 		print "[initializing backend]"		
-		local_backend = Backend(confs, create=True)
+		localdb = LocalBackend(confs, create=True)
 	else:
-		local_backend = Backend(confs)		
+		localdb = LocalBackend(confs)		
 
 	if args.load_surveys is not None:
-		print "[loading surveys @ {}]".format(args.load_surveys)
-		load_surveys(local_backend, args.load_surveys)
+		load_surveys(localdb, args.load_surveys)
 	elif args.connect is not None:
 		print "[launching Sleek4Slack]"
 		api_token = args.connect[0]
 		bot_name  = args.connect[1]
-		sleek_client = sleek.Sleek4Slack(db=local_backend)
-		sleek_client.connect(api_token, bot_name, greet_channel=args.greet, verbose=args.verbose, dbg=args.dbg)		
+		chat_bot = Sleek4Slack(db=localdb)
+		chat_bot.connect(api_token, bot_name, greet_channel=args.greet, verbose=args.verbose, dbg=args.dbg)		
 	else:
 		raise NotImplementedError("Nothing to do. You can either load surveys or connect to a Slack")

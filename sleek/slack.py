@@ -1,19 +1,21 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from collections import defaultdict
 from datetime import datetime
-try:
-	from ipdb import set_trace
-except ImportError:
-	from pdb import set_trace
 import json
 import pprint
 import pandas as pd
 from slackclient import SlackClient
-from backend import Backend
-from sleek import Sleek
 import status
 import time
 
+#sleek
+from backend import LocalBackend as Backend
+from __init__ import Sleek
+
+try:
+	from ipdb import set_trace
+except ImportError:
+	from pdb import set_trace
 
 READ_WEBSOCKET_DELAY = 1 # 1 second delay between reading from firehose
 

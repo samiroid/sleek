@@ -4,11 +4,13 @@ import pytest
 from datetime import datetime
 import sys
 
-sys.path.append("src")
-from src.backend import Backend
-from src.sleek import Sleek
-from src.sleek_4_slack import Sleek4Slack
-import src.status as status
+sys.path.append("sleek")
+
+from sleek import Sleek, status
+from sleek.slack import Sleek4Slack
+from sleek.backend import LocalBackend as Backend
+
+
 
 back_cfg = {
 		"local_DB":"DATA/test_slack.db"
