@@ -230,7 +230,7 @@ class Sleek4Slack(Sleek):
 		self.slackers = self.get_slackers()
 		self.id2user = {uid:uname for uname, uid in self.slackers.items()}
 		#open direct messages
-		self.direct_messages = {self.open_dm(u):u for u in self.slackers.values() if u is not None}
+		self.direct_messages = {} #{self.open_dm(u):u for u in self.slackers.values() if u is not None}
  		if greet_channel is not None: 
  			self.post(greet_channel, self.greet())
  			self.post(greet_channel, self.announce()) 			
