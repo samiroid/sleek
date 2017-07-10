@@ -3,12 +3,15 @@
 """
 
 import json
+from kafka import KafkaProducer
 import os
+import pprint
 import sqlite3
-try:
-	from ipdb import set_trace
-except ImportError:
-	from pdb import set_trace
+
+# try:
+# 	from ipdb import set_trace
+# except ImportError:
+# 	from pdb import set_trace
 
 class LocalBackend(object):
 	#user table columns
@@ -150,7 +153,7 @@ class LocalBackend(object):
 			db.commit()
 			db.close()
 		except sqlite3.IntegrityError: 
-			raise RuntimeError("survey already exists")
+			raise RuntimeError("survey {} already exists".format(survey["id"].upper()))
 
 	def delete_answers(self, user_id, survey_id):
 		sql = '''DELETE FROM survey_{} WHERE user_id=?'''.format(survey_id)
@@ -232,7 +235,37 @@ class LocalBackend(object):
 		sql = '''SELECT ts, notes FROM {} WHERE user_id=? AND notes IS NOT NULL order by ts DESC'''.format(survey_table)
 		return self.__get(sql,(user_id,))
 
-	
+class KafkaBackend(LocalBackend):
+	def __init__(self, cfg, create=False):		
+		pprint.pprint(cfg)		
+		self.kafka_topic = cfg["kafka_topic"]
+		self.teamId = cfg["teamId"]
+		kafka_servers = cfg["kafka_servers"].split(",")
+		self.kafka = KafkaProducer(bootstrap_servers=kafka_servers)
+		LocalBackend.__init__(self, cfg, create)
+
+	def save_answer(self, user_id, survey_id, answer):
+		r = LocalBackend.save_answer(self, user_id, survey_id, answer)		
+		if r > 0:
+			payload = {
+			"teamId": self.teamId,
+			"userId": user_id,
+			"ts": answer["ts"],
+			"surveyId": survey_id,
+			"responses": answer
+			}
+			print "[posting to kafka: {0}]".format(payload)
+			self.post_kafka(json.dumps(payload))
+		return r	
+
+	def post_kafka(self, payload):						
+		sent = self.kafka.send(self.kafka_topic, payload)		
+		self.kafka.flush()
+		print sent
+
+		
+
+
 
 
 	

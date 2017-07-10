@@ -1,2 +1,5 @@
-pytest tests/test_backend.py -x -v
-pytest tests/test_sleek_4_slack.py -x -v
+pytest tests/test_LocalBackend.py -x -v &&
+pytest tests/test_KafkaBackend.py -x -v &&
+
+pytest tests/test_Sleek.py -x -v &&
+pytest tests/test_Slack.py -x -v 
