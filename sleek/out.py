@@ -3,7 +3,7 @@ OK = u"OK :+1:"
 PLEASE_SUBSCRIBE = u"if you want to participate in this survey, use the `join` command to subscribe"
 INVALID_TIME = u"invalid time: `{}`"
 GREET_USER = u":wave: {} {}! Let's talk in private :wink:"
-
+INVITE_DM = ":point_right: slack://user?team={}&id={}"
 #answers
 ANSWERS_TOO_FEW = u"Hey...I think you forgot to enter some answers. I was expecting *{}* answers but only got *{}*."
 ANSWERS_TOO_MANY = u"Whoa! You entered too many answers. I was expecting *{}* answers but you entered *{}*."

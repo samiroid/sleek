@@ -7,7 +7,7 @@ sys.path.append("sleek")
 from sleek.backend import LocalBackend as Backend
 
 
-DB_path="DATA/test.db"
+DB_path="test.db"
 
 cfg = {
 		"local_DB":DB_path

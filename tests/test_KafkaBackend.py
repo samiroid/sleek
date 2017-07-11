@@ -7,7 +7,7 @@ sys.path.append("sleek")
 from sleek.backend import KafkaBackend as Backend
 from kafka import KafkaConsumer
 
-DB_path="DATA/test.db"
+DB_path="test.db"
 
 cfg = {
 		"local_DB":DB_path,
@@ -302,3 +302,15 @@ def test_get_notes():
 	assert report[1] == ( u'300', "this a another note")
 	assert report[2] == ( u'200', "this a nifty note")	
 
+
+if __name__ == "__main__":
+	my_backend = Backend(cfg, create=True)	
+	my_backend.create_survey(sleep_survey)				
+	consumer = KafkaConsumer(cfg["kafka_topic"], bootstrap_servers=cfg["kafka_servers"].split(), auto_offset_reset='earliest')
+	#save answer
+	ans = {"sleep_hours":9,"sleep_quality":5, "ts": 200}
+	my_backend.save_answer(user_id, sleep_survey["id"], ans)	
+	s = consumer.next().value
+	print s
+	r = json.loads(s)["responses"]	
+	assert r == ans

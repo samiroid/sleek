@@ -1,6 +1,6 @@
 from _sleek import Sleek
 from slack import Sleek4Slack
-from backend import LocalBackend
+from backend import LocalBackend, KafkaBackend
 import os
 import json
 

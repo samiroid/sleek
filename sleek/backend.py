@@ -2,11 +2,14 @@
 	Methods to comunicate with a backend
 """
 
+from datetime import datetime
 import json
 from kafka import KafkaProducer
 import os
 import pprint
 import sqlite3
+
+
 
 # try:
 # 	from ipdb import set_trace
@@ -239,18 +242,21 @@ class KafkaBackend(LocalBackend):
 	def __init__(self, cfg, create=False):		
 		pprint.pprint(cfg)		
 		self.kafka_topic = cfg["kafka_topic"]
-		self.teamId = cfg["teamId"]
+		self.team_id = cfg["team_id"]
 		kafka_servers = cfg["kafka_servers"].split(",")
 		self.kafka = KafkaProducer(bootstrap_servers=kafka_servers)
 		LocalBackend.__init__(self, cfg, create)
 
 	def save_answer(self, user_id, survey_id, answer):
-		r = LocalBackend.save_answer(self, user_id, survey_id, answer)		
+		r = LocalBackend.save_answer(self, user_id, survey_id, answer)			
+		dt = datetime.strptime(answer["ts"] , '%Y-%m-%d %H:%M')
+		timestamp = (dt - datetime(1970, 1, 1)).total_seconds()	
+		del answer["ts"]
 		if r > 0:
 			payload = {
-			"teamId": self.teamId,
+			"teamId": self.team_id,
 			"userId": user_id,
-			"ts": answer["ts"],
+			"ts": timestamp,
 			"surveyId": survey_id,
 			"responses": answer
 			}

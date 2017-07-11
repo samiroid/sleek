@@ -12,10 +12,10 @@ import time
 from backend import LocalBackend as Backend
 from _sleek import Sleek
 
-# try:	
-# 	from ipdb import set_trace
-# except ImportError:
-# 	from pdb import set_trace
+try:	
+	from ipdb import set_trace
+except ImportError:
+	from pdb import set_trace
 
 READ_WEBSOCKET_DELAY = 1 # 1 second delay between reading from firehose
 
@@ -68,6 +68,8 @@ class Sleek4Slack(Sleek):
 		#survey_threads > {thread_id:(user_id, survey_id, response)}
 		self.survey_threads = {}						
 		self.slack_client = None
+		self.team_id = None
+		self.bot_id = None
 
 
 	#################################################################
@@ -225,27 +227,29 @@ class Sleek4Slack(Sleek):
 			resp = Sleek.chat(self, tokens, context)
 			return resp
 
-	def connect(self, api_token, bot_name, greet_channel=None, verbose=False, dbg=False):
+	def connect(self, api_token, bot_name, team_id, greet_channel=None, verbose=False, dbg=False):
 		self.slack_client = SlackClient(api_token)				
 		self.slackers = self.get_slackers()
 		self.id2user = {uid:uname for uname, uid in self.slackers.items()}
-		#open direct messages
-		self.direct_messages = {} #{self.open_dm(u):u for u in self.slackers.values() if u is not None}
+		self.team_id = team_id
+		self.bot_id = self.slackers[bot_name]
+		#open direct messages		
+		self.direct_messages = self.current_dms() #{self.open_dm(u):u for u in self.slackers.values() if u is not None}
  		if greet_channel is not None: 
  			self.post(greet_channel, self.greet())
  			self.post(greet_channel, self.announce()) 			
 		if self.slack_client.rtm_connect():
-			self.__listen(bot_name, verbose, dbg)
+			self.__listen(verbose, dbg)
 		else:
 			raise RuntimeError("Could not connect to RTM API :(")
 
 
-	def __listen(self, bot_name, verbose=False, dbg=False):
+	def __listen(self, verbose=False, dbg=False):
 		"""
 			verbose == True, print all the events of type "message"
 			dbg == True, allow unhandled exceptions
 		"""
-		hat_bot = "<@{}>".format(self.slackers[bot_name]).lower() 
+		hat_bot = "<@{}>".format(self.bot_id).lower() 
 		while True:		
 			reply = None	
 			for output in self.slack_client.rtm_read():					
@@ -287,23 +291,26 @@ class Sleek4Slack(Sleek):
 			   			reply = self.parse_answer(thread_ts, text)			   			
 				#or messages directed at the bot						   	
 				elif hat_bot in text or channel in self.direct_messages:
+					#remove bot mention
+			   		text = text.replace(hat_bot,"").strip()			   					   		
 					#if user is not talking on a direct message with sleek
 					#open a new one, and reply there
-					if channel not in self.direct_messages:
+					if channel not in self.direct_messages:												
+						#open new DM
 						new_dm = self.open_dm(user)						
-						self.direct_messages[new_dm] = user
-						#greet user and move conversation to a private chat
+						self.direct_messages[new_dm] = user					
 						try:
 							username = self.id2user[user]
 						except KeyError:
 							username=""
+						#greet user and move conversation to a private chat
 						self.post(channel, out.GREET_USER.format(self.greet(), username), thread_ts)
+						self.post(channel, out.INVITE_DM.format(self.team_id, self.bot_id), thread_ts)
+						#say hi on the new DM
 						self.post(new_dm, self.greet())
+						self.post(new_dm, "> _you asked_: `{}`\n".format(text))
 						channel = new_dm 
-						thread_ts = None
-
-					#remove bot mention
-			   		text = text.replace(hat_bot,"").strip()			   					   		
+						thread_ts = None					
 			   		if dbg:
 			   			#debug mode lets unhandled exceptions explode
 			   			reply = self.chat(text, context)			   			
@@ -584,4 +591,13 @@ class Sleek4Slack(Sleek):
 			return None
 		else:
 			return resp["channel"]["id"]
+
+	def current_dms(self):
+		resp = self.slack_client.api_call("im.list")		
+		if not resp.get("ok"): 						
+			print "\033[31m[error: {}]\033[0m".format(resp["error"])
+			return []
+		else:
+			 dm_ids = {r["id"]:r["user"] for r in resp["ims"] if not r["is_user_deleted"]}
+			 return dm_ids
 	

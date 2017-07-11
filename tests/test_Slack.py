@@ -10,7 +10,7 @@ from sleek import Sleek, Sleek4Slack, out
 from sleek import LocalBackend as Backend
 
 back_cfg = {
-		"local_DB":"DATA/test_slack.db"
+		"local_DB":"test_slack.db"
 		}
 
 user_id="SILVIO"

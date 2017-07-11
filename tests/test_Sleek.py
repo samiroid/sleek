@@ -4,11 +4,6 @@ import sys
 sys.path.append("sleek")
 import sleek 
 
-back_cfg = {
-		"local_DB":"DATA/test_slack.db"
-		}
-
-
 def test_confs():
 	
 	cfg={ 
