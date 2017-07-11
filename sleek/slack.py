@@ -308,7 +308,7 @@ class Sleek4Slack(Sleek):
 						self.post(channel, out.INVITE_DM.format(self.team_id, self.bot_id), thread_ts)
 						#say hi on the new DM
 						self.post(new_dm, self.greet())
-						self.post(new_dm, "> _you asked_: `{}`\n".format(text))
+						self.post(new_dm, "> *you said*: _{}_\n\n".format(text))
 						channel = new_dm 
 						thread_ts = None					
 			   		if dbg:

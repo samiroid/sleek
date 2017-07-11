@@ -14,11 +14,13 @@ def get_parser():
     parser.add_argument('-init', action="store_true", help="Initializes the backend")
     parser.add_argument('-surveys', type=str, help='path to a folder with the surveys in json format')     
     parser.add_argument('-connect', action="store_true", help="Connect to Slack")        
-    parser.add_argument('-greet', type=str, default=None, help="channel to send a greeting after connection")
     parser.add_argument('-dbg', action="store_true", help="Debug Mode; Unhandled exceptions explode")
     parser.add_argument('-verbose', action="store_true", help="Verbose Mode")    
 
     return parser
+
+def get_api_token(key):
+	return os.getenv(key)
 
 if __name__ == "__main__":	
 	parser = get_parser()
@@ -32,9 +34,16 @@ if __name__ == "__main__":
 		sleek.load_surveys(localdb, args.surveys)
 	elif args.connect is not None:
 		print "[launching Sleek4Slack]"
-		api_token = os.getenv(confs["api_token"])
+		api_token = get_api_token(confs["api_token"])
 		bot_name  = confs["bot_name"]
+		team_id = confs["team_id"]
+		try:
+			greet_channel = confs["greet_channel"]
+			print "[greeting {}]".format(greet_channel)
+		except KeyError:
+			print "[no greeting]"
+			greet_channel = None
 		chat_bot = sleek.Sleek4Slack(db=localdb)
-		chat_bot.connect(api_token, bot_name, greet_channel=args.greet, verbose=args.verbose, dbg=args.dbg)		
+		chat_bot.connect(api_token, bot_name, team_id, greet_channel=greet_channel, verbose=args.verbose, dbg=args.dbg)				
 	else:
 		raise NotImplementedError("Nothing to do. You can either load surveys or connect to a Slack")
