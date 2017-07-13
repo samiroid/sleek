@@ -26,14 +26,19 @@ if __name__ == "__main__":
 	parser = get_parser()
 	args = parser.parse_args()	
 	confs = json.load(open(args.cfg, 'r'))	 	
-
-	if args.init: localdb = sleek.LocalBackend(confs, create=True)
-	else:         localdb = sleek.LocalBackend(confs)		
+	hello_world =  "[launching Sleek4Slack]"
+	
+	if confs["backend_type"]=="local":
+		localdb = sleek.LocalBackend(confs, create=args.init)
+	elif confs["backend_type"]=="kafka":
+		localdb = sleek.KafkaBackend(confs, create=args.init)		
+	else:
+		raise NotImplementedError
 
 	if args.surveys is not None:
 		sleek.load_surveys(localdb, args.surveys)
 	elif args.connect is not None:
-		print "[launching Sleek4Slack]"
+		print hello_world
 		api_token = get_api_token(confs["api_token"])
 		bot_name  = confs["bot_name"]
 		team_id = confs["team_id"]
