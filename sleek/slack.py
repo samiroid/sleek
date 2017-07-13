@@ -529,66 +529,66 @@ class Sleek4Slack(Sleek):
 		
 		if not resp.get("ok"): print u"\033[31m[error: {}]\033[0m".format(resp["error"])
 
-	# def post_attach(self, channel, message, ts=None):
-		print u"[posting:\"{}\" to channel {}]".format(message,channel)
+	# # def post_attach(self, channel, message, ts=None):
+	# 	print u"[posting:\"{}\" to channel {}]".format(message,channel)
 		
-		q =  [
-			{
-			"fallback": "Required plain-text summary of the attachment.",
-			"color": "#36a64f",
-			"pretext": "Optional text that appears above the attachment block",
-			# "author_name": "Bobby Tables",
-			# "author_link": "http://flickr.com/bobby/",
-			# "author_icon": "http://flickr.com/icons/bobby.jpg",
-			# "title": "Slack API Documentation",
-			# "title_link": "https://api.slack.com/",
-			"text": "Optional text that appears within the attachment",
-			"fields": [
-						{
-						    "title": "Bagulho",
-						    "value": "Daquels",
-						    "short": False
-						},
-						{
-						    "title": "Belinhas",
-						    "value": "da Cara",
-						    "short": False
-						},
-						{
-						    "title": "Priority",
-						    "value": "High",
-						    "short": True
-						},
-						{
-						    "title": "Priority",
-						    "value": "`Low`",
-						    "short": True
-						},
-						{						 
-						    "value": "*High*",
-						    "short": True
-						},
-						{						 
-						    "value": "_Low_",
-						    "short": True
-						}
-			],
-			"image_url": "http://my-website.com/path/to/image.jpg",
-			"thumb_url": "http://example.com/path/to/thumb.png",
-			"footer": "Slack API",
-			"footer_icon": "https://platform.slack-edge.com/img/default_application_icon.png",
-			"ts": 123456789
-			}
-		]
+	# 	q =  [
+	# 		{
+	# 		"fallback": "Required plain-text summary of the attachment.",
+	# 		"color": "#36a64f",
+	# 		"pretext": "Optional text that appears above the attachment block",
+	# 		# "author_name": "Bobby Tables",
+	# 		# "author_link": "http://flickr.com/bobby/",
+	# 		# "author_icon": "http://flickr.com/icons/bobby.jpg",
+	# 		# "title": "Slack API Documentation",
+	# 		# "title_link": "https://api.slack.com/",
+	# 		"text": "Optional text that appears within the attachment",
+	# 		"fields": [
+	# 					{
+	# 					    "title": "Bagulho",
+	# 					    "value": "Daquels",
+	# 					    "short": False
+	# 					},
+	# 					{
+	# 					    "title": "Belinhas",
+	# 					    "value": "da Cara",
+	# 					    "short": False
+	# 					},
+	# 					{
+	# 					    "title": "Priority",
+	# 					    "value": "High",
+	# 					    "short": True
+	# 					},
+	# 					{
+	# 					    "title": "Priority",
+	# 					    "value": "`Low`",
+	# 					    "short": True
+	# 					},
+	# 					{						 
+	# 					    "value": "*High*",
+	# 					    "short": True
+	# 					},
+	# 					{						 
+	# 					    "value": "_Low_",
+	# 					    "short": True
+	# 					}
+	# 		],
+	# 		"image_url": "http://my-website.com/path/to/image.jpg",
+	# 		"thumb_url": "http://example.com/path/to/thumb.png",
+	# 		"footer": "Slack API",
+	# 		"footer_icon": "https://platform.slack-edge.com/img/default_application_icon.png",
+	# 		"ts": 123456789
+	# 		}
+	# 	]
 
 		
-		resp = self.slack_client.api_call("chat.postMessage",
-  					 channel=channel,
-  					 as_user=True,  		
-  					 text=message,
-  					 attachments=q)
+	# 	resp = self.slack_client.api_call("chat.postMessage",
+ #  					 channel=channel,
+ #  					 as_user=True,  		
+ #  					 text=message,
+ #  					 attachments=q)
 		
-		if not resp.get("ok"): print u"\033[31m[error: {}]\033[0m".format(resp["error"])
+	# 	if not resp.get("ok"): print u"\033[31m[error: {}]\033[0m".format(resp["error"])
 
 	def get_slackers(self):
 		resp = self.slack_client.api_call("users.list")
