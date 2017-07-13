@@ -363,7 +363,7 @@ class Sleek4Slack(Sleek):
 		if not survey_id in self.current_surveys: return out.SURVEY_UNKNOWN.format(survey_id.upper())
 		#check if user already subscrided this survey
 		try:
-			if self.list_surveys(user_id)[survey_id]:
+			if self.get_surveys(user_id)[survey_id]:
 				return out.SURVEY_IS_SUBSCRIBED.format(survey_id.upper())
 		except KeyError: 
 			pass		
