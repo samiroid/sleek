@@ -82,8 +82,6 @@ def survey_list( user_surveys, other_surveys):
 	display = u"*Your Surveys*\n{}\n{}"
 	return display.format("\n".join(us),"\n".join(ot))
 
-
-
 def attach_answer(a,survey_id):
 	notes = None
 	if "notes" in a: notes = a["notes"]			

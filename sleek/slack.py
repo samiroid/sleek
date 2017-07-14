@@ -480,11 +480,16 @@ class Sleek4Slack(Sleek):
 				replies = [out.MISSING_PARAMS]
 			else:
 				replies = self.cmd_survey(tokens, context)
-				atch = replies.pop()
-				for r in replies:
-					self.post(channel, r, thread_ts)
-				self.post(channel, "", thread_ts, attach=atch)							
-				replies = []
+				#error case
+				if len(replies) == 1:
+					rep = replies.pop()
+					self.post(channel, rep, thread_ts)
+				else:
+					atch = replies.pop()
+					for r in replies:
+						self.post(channel, r, thread_ts)
+					self.post(channel, "", thread_ts, attach=atch)							
+					replies = []
 
 		# ---- PASS IT TO THE PARENT CLASS (maybe it knows how to handle this input)
 		else:
