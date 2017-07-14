@@ -19,8 +19,11 @@ def get_parser():
 
     return parser
 
-def get_api_token(key):
-	return os.getenv(key)
+def get_api_token(key, method="env"):
+	if method == "env":
+		return os.getenv(key)
+	else:
+		raise NotImplementedError
 
 if __name__ == "__main__":	
 	parser = get_parser()
@@ -39,7 +42,7 @@ if __name__ == "__main__":
 		sleek.load_surveys(localdb, args.surveys)
 	elif args.connect is not None:
 		print hello_world
-		api_token = get_api_token(confs["api_token"])
+		api_token = get_api_token(confs["api_token"],confs["get_token_from"])
 		bot_name  = confs["bot_name"]
 		team_id = confs["team_id"]
 		try:

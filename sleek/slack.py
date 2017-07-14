@@ -70,7 +70,7 @@ class Sleek4Slack(Sleek):
 		self.survey_threads = {}						
 		self.slack_client = None
 		self.team_id = None
-		self.bot_id = None
+		self.bot_name = None
 
 
 	#################################################################
@@ -83,10 +83,10 @@ class Sleek4Slack(Sleek):
 		#check if user already subscrided this survey
 		try:
 			if not self.get_surveys(user_id)[survey_id]:
-				return out.SURVEY_NOT_SUBSCRIBED.format(survey_id.upper())
+				return out.SURVEY_NOT_SUBSCRIBED.format(survey_id.upper(), self.bot_name)
 			return ""  
 		except KeyError: 
-			return out.SURVEY_NOT_SUBSCRIBED.format(survey_id.upper())		
+			return out.SURVEY_NOT_SUBSCRIBED.format(survey_id.upper(), self.bot_name)		
 
 	def __schedule_reminder(self, user_id, survey_id, schedule):		
 		#if ts is None remove the reminder		
@@ -124,62 +124,86 @@ class Sleek4Slack(Sleek):
 
 	def chat(self, text, context):
 		user_id = context["user_id"]
+		channel = context["channel"]
+		thread_ts = context["thread_ts"]
 		tokens = text.split()
 		action = tokens[0]
 		params =  u','.join(tokens[1:])		
 		print u"[user: {}| action: {}({})]".format(user_id, action, params)						
-		
+		print "chat chan:{}".format(channel)
 		#Actions
 		# ---- DELETE DATA ----
 		if action == "delete":			
-			if len(tokens) < 2: return out.MISSING_PARAMS			
-			return self.delete(tokens, context)			
+			if len(tokens) < 2: 
+				replies = [out.MISSING_PARAMS]			
+			else:
+				replies = self.delete(tokens, context)			
 		
 		# ---- JOIN SURVEY ----
 		elif action == "join":			
-			if len(tokens) < 2: return out.MISSING_PARAMS
-			return self.join(tokens, context)
+			if len(tokens) < 2: 
+				replies = [out.MISSING_PARAMS]
+			else:
+				replies = self.join(tokens, context)
 
 		# ---- LEAVE SURVEY ----
 		elif action == "leave":	
-			if len(tokens) < 2: return out.MISSING_PARAMS					
-			return self.leave(tokens, context)											
+			if len(tokens) < 2: 
+				replies = [out.MISSING_PARAMS]					
+			else:
+				replies = self.leave(tokens, context)											
 
 		# ---- LIST SURVEYS ----
 		elif action == "list": 
-			return self.list_surveys(tokens, context)						
+			replies = self.list_surveys(tokens, context)						
 
-		# ---- SHOW REPORT ----
+		# ---- SHOW NOTES ----
 		elif action == "notes":					
-			if len(tokens) < 2: return out.MISSING_PARAMS									
-			return self.notes(tokens, context)					
+			if len(tokens) < 2: 
+				replies = [out.MISSING_PARAMS]									
+			else:
+				replies = self.notes(tokens, context)					
 
 		# ---- SHOW REPORT ----
 		elif action == "report":					
-			if len(tokens) < 2: return out.MISSING_PARAMS									
-			return self.report(tokens, context)			
+			if len(tokens) < 2: 
+				replies = [out.MISSING_PARAMS]	
+			else:				
+				replies = self.report(tokens, context)		
+				#if there is only one message, then this is an error (sucess returns an ack and the reply)
+				if len(replies) > 1:
+					atch = replies.pop()
+					for r in replies:
+						self.post(channel, r, thread_ts)
+					self.post(channel, "", thread_ts, attach=atch)						
+					replies = []
 		
 		# ---- SCHEDULE SURVEY ----
 		elif action == "reminder":	
-			if len(tokens) < 3: return out.MISSING_PARAMS											
-			return self.reminder(tokens, context)
+			if len(tokens) < 3: 
+				replies = [out.MISSING_PARAMS]											
+			else:
+				replies = self.reminder(tokens, context)
 
 		# ---- ANSWER SURVEY ----
 		elif action == "survey":
-			if len(tokens) < 2: return out.MISSING_PARAMS
-			return self.survey(tokens, context)			
-		
-		# ---- PASS IT TO SLEEK (parent class)
+			if len(tokens) < 2: 
+				replies = [out.MISSING_PARAMS]
+			else:
+				replies = self.survey(tokens, context)			
+
+		# ---- PASS IT TO THE PARENT CLASS (maybe it knows how to handle this input)
 		else:
-			resp = Sleek.chat(self, tokens, context)
-			return resp
+			replies = Sleek.chat(self, tokens, context)
+		#post replies				
+		for r in replies: self.post(channel, r, thread_ts)
 
 	def connect(self, api_token, bot_name, team_id, greet_channel=None, verbose=False, dbg=False):
 		self.slack_client = SlackClient(api_token)				
 		self.slackers = self.get_slackers()
-		self.id2user = {uid:uname for uname, uid in self.slackers.items()}
-		self.team_id = team_id
-		self.bot_id = self.slackers[bot_name]
+		self.id2user  = {uid:uname for uname, uid in self.slackers.items()}
+		self.team_id  = team_id
+		self.bot_name = bot_name
 		#open direct messages		
 		self.direct_messages = self.current_dms() #{self.open_dm(u):u for u in self.slackers.values() if u is not None}		
  		if greet_channel is not None: 
@@ -191,18 +215,12 @@ class Sleek4Slack(Sleek):
 		else:
 			raise RuntimeError("Could not connect to RTM API :(")
 
-	def get_surveys(self, user_id):
-		us = self.backend.list_surveys(user_id)		
-		user_surveys  = {x[1]:None for x in us}				
-		surveys = {s:True if s in user_surveys else False for s in self.current_surveys.keys()}				
-		return surveys		
-
 	def __listen(self, verbose=False, dbg=False):
 		"""
 			verbose == True, print all the events of type "message"
 			dbg == True, allow unhandled exceptions
 		"""
-		hat_bot = "<@{}>".format(self.bot_id).lower() 
+		hat_bot = "<@{}>".format(self.slackers[self.bot_name]).lower() 
 		while True:		
 			reply = None	
 			for output in self.slack_client.rtm_read():					
@@ -226,7 +244,7 @@ class Sleek4Slack(Sleek):
 				if thread_ts in self.survey_threads:   	
 					#remove bot mention
    					text = text.replace(hat_bot,"").strip()			   							
-			   		reply = self.ongoing_survey(text, thread_ts)	   			
+			   		self.ongoing_survey(text, context)	   			
 				#or messages directed at the bot						   	
 				elif hat_bot in text or channel in self.direct_messages:
 					#remove bot mention
@@ -234,26 +252,25 @@ class Sleek4Slack(Sleek):
 					#if user is not talking on a direct message with sleek
 					#open a new one, and reply there
 					if channel not in self.direct_messages:												
-						channel = self.greet_user(channel, user, text)
-						thread_ts = None				
+						new_context = self.greet_user(text, context)						
+						context = new_context
 			   		if dbg:
 			   			#debug mode lets unhandled exceptions explode
-			   			reply = self.chat(text, context)			   			
+			   			self.chat(text, context)			   			
 		   			else:
 		   				try:
-			   				reply = self.chat(text, context)
+			   				self.chat(text, context)
 		   				except Exception as e:	   					
 		   					reply = "```[FATAL ERROR: {}]```".format(e)
-		   		if reply is None: continue				   	
-   				#a reply can be either a message or a list thereof
-   				if type(reply) == list: 
-   					for r in reply: self.post(channel, r, thread_ts)
-				else: 
-					self.post(channel, reply, thread_ts)				
+		   					self.post(channel, reply, thread_ts)
+
+				print "[waiting for @{}...]".format(self.bot_name)				
 				time.sleep(READ_WEBSOCKET_DELAY)
 
-	def ongoing_survey(self, text, thread_ts):		
+	def ongoing_survey(self, text, context):		
    		tokens = text.split()
+   		channel = context["channel"]
+   		thread_ts = context["thread_ts"]
 		if tokens[0] == "cancel":
 			#remove current thread from open survey threads
 			del self.survey_threads[thread_ts]
@@ -269,11 +286,20 @@ class Sleek4Slack(Sleek):
 			reply = [self.ack(), out.ANSWERS_ADD_NOTE]						
 		else:
    			reply = self.parse_answer(thread_ts, text)
-
-   		return reply
-
-	def greet_user(self, channel, user, text):
+   			if len(reply) > 1:
+   				#ok
+   				attach = reply.pop()   		
+   				self.post(channel, "", thread_ts, attach)
+   				for r in reply: self.post(channel, r, thread_ts)   				
+   				reply = []
+   		
+		for r in reply: self.post(channel, r, thread_ts)
+		
+   		
+	def greet_user(self, text, context):
 		#open new DM
+		user = context["user_id"]		
+		channel = context["channel"]
 		new_dm = self.open_dm(user)						
 		self.direct_messages[new_dm] = user					
 		try:
@@ -284,16 +310,16 @@ class Sleek4Slack(Sleek):
 		self.post(channel, out.GREET_USER.format(self.greet(), username))		
 		#say hi on the new DM		
 		self.post(new_dm, "> *you said*: _{}_\n\n".format(text))
-		return new_dm 
+		context["channel"] = new_dm
+		context["thread_ts"] = None
 		
+		return context
 
-
-	
 	#################################################################
 	# BOT ACTION METHODS
 	#################################################################	
 	
-	################ ANSWER METHODS
+	########## ANSWER METHODS
 
 	def parse_answer(self, survey_thread, text):
 		open_user, open_survey, open_response = self.survey_threads[survey_thread]		
@@ -308,40 +334,40 @@ class Sleek4Slack(Sleek):
 			#assumes responses are separated by white spaces		
 			try:
 				#answers are indices into a list of choices
-				# answers = [int(a) for a in text.split()]
 				answers = [ascii_letters.index(a) for a in text.split()]
 			except ValueError:
-				return out.ANSWERS_INVALID
+				return [out.ANSWERS_INVALID]
 			#incorrect number of answers
 			if len(answers) > len(questions):
-				return out.ANSWERS_TOO_MANY.format(len(questions), len(answers))		
+				return [out.ANSWERS_TOO_MANY.format(len(questions), len(answers))]
 			elif len(answers) < len(questions):
-				return out.ANSWERS_TOO_FEW.format(len(questions), len(answers))		
+				return [out.ANSWERS_TOO_FEW.format(len(questions), len(answers))]
 			#response dictionary
 			response = {}
 			for q, a in zip(questions, answers):
 				q_id = q["q_id"]
 				choices = q["choices"]
 				if a not in range(len(choices)):
-					return out.ANSWERS_BAD_CHOICE.format(q["q_id"])
+					return [out.ANSWERS_BAD_CHOICE.format(q["q_id"])]
 				else:
 					response[q_id] = choices[a]		
 		#cache this response
 		self.survey_threads[survey_thread] = (open_user, open_survey, response)		
-		return [display.answer(response), out.ANSWERS_CONFIRM]
+		attach = display.attach_answer(response)		
+		return [out.ANSWERS_CONFIRM, attach]
 
 	def save_answer(self, survey_thread):
 		user_id, survey_id, response  = self.survey_threads[survey_thread]
-		if response is None: return out.ANSWERS_INVALID
+		if response is None: return [out.ANSWERS_INVALID]
 		try:			
 			del self.survey_threads[survey_thread]
 			ts = datetime.now().strftime('%Y-%m-%d %H:%M')
 			response["ts"]=ts
 			if not self.backend.save_answer(user_id, survey_id, response):
-				return out.ANSWERS_SAVE_FAIL			
+				return [out.ANSWERS_SAVE_FAIL]
 		except RuntimeError:
-			return out.ANSWERS_SAVE_FAIL		
-		return out.ANSWERS_SAVE_OK
+			return [out.ANSWERS_SAVE_FAIL]
+		return [out.ANSWERS_SAVE_OK]
 
 	def delete(self, tokens, context):
 		user_id = context["user_id"]				
@@ -349,22 +375,28 @@ class Sleek4Slack(Sleek):
 		#check if user can delete answers to this survey
 		#if ok err_msg will be empty
 		err_msg = self.__is_valid_survey(user_id, survey_id)
-		if len(err_msg)>0: return err_msg
+		if len(err_msg)>0: return [err_msg]
 		r = self.backend.delete_answers(user_id, survey_id)
-		if r > 0: return out.ANSWERS_DELETE_OK.format(survey_id.upper())
-		else:	  return out.ANSWERS_DELETE_FAIL.format(survey_id.upper())
+		if r > 0: return [out.ANSWERS_DELETE_OK.format(survey_id.upper())]
+		else:	  return [out.ANSWERS_DELETE_FAIL.format(survey_id.upper())]
 
 	################ SURVEY METHODS
+
+	def get_surveys(self, user_id):
+		us = self.backend.list_surveys(user_id)		
+		user_surveys  = {x[1]:None for x in us}				
+		surveys = {s:True if s in user_surveys else False for s in self.current_surveys.keys()}				
+		return surveys		
 
 	def join(self, tokens, context):
 		user_id = context["user_id"]						
 		survey_id = tokens[1]
 		#check if survey exists
-		if not survey_id in self.current_surveys: return out.SURVEY_UNKNOWN.format(survey_id.upper())
+		if not survey_id in self.current_surveys: return [out.SURVEY_UNKNOWN.format(survey_id.upper())]
 		#check if user already subscrided this survey
 		try:
 			if self.get_surveys(user_id)[survey_id]:
-				return out.SURVEY_IS_SUBSCRIBED.format(survey_id.upper())
+				return [out.SURVEY_IS_SUBSCRIBED.format(survey_id.upper())]
 		except KeyError: 
 			pass		
 		#all the remainder tokens have to be valid dates
@@ -372,13 +404,13 @@ class Sleek4Slack(Sleek):
 			try:
 				_ = self.__get_time(t)				
 			except RuntimeError as e:
-				return str(e)		
+				return [str(e)]
 		try:
 			#try to join survey					
 			if not self.backend.join_survey(user_id, survey_id):
-				return out.SURVEY_JOIN_FAIL.format(survey_id.upper())
+				return [out.SURVEY_JOIN_FAIL.format(survey_id.upper())]
 		except RuntimeError as e:			
-			return out.SURVEY_JOIN_FAIL.format(survey_id.upper()) + " [err: {}]".format(str(e))		
+			return [out.SURVEY_JOIN_FAIL.format(survey_id.upper()) + " [err: {}]".format(str(e))]
 		
 		if len(tokens) > 2:
 			rep = self.reminder(tokens, context)
@@ -394,9 +426,9 @@ class Sleek4Slack(Sleek):
 		#check if user can leave survey
 		#if ok err_msg will be empty
 		err_msg = self.__is_valid_survey(user_id, survey_id)
-		if len(err_msg)>0: return err_msg
+		if len(err_msg)>0: return [err_msg]
 		if not self.backend.leave_survey(user_id, survey_id):
-			return out.SURVEY_LEAVE_FAIL.format(survey_id.upper())		
+			return [out.SURVEY_LEAVE_FAIL.format(survey_id.upper())]
 		return [self.ack(), out.SURVEY_LEAVE_OK.format(survey_id.upper())]
 
 	def survey(self, tokens, context, present=True):
@@ -405,19 +437,19 @@ class Sleek4Slack(Sleek):
 		#check if user can open this survey
 		#if ok err_msg will be empty
 		err_msg = self.__is_valid_survey(user_id, survey_id)
-		if len(err_msg)>0: return err_msg
+		if len(err_msg)>0: return [err_msg]
 		#register this thread as an open survey
 		self.survey_threads[context["thread_ts"]] = (user_id, survey_id, None)
 		s = self.current_surveys[survey_id]
 		if present: return [self.ack(), display.survey(s)]
-		else:       return s
+		else:       return [s]
 
 	def list_surveys(self, tokens, context):
 		user_id = context["user_id"]
 		us = self.backend.list_surveys(user_id)		
 		user_surveys  = {x[1]:(x[2],x[3]) for x in us}
 		other_surveys = [s for s in self.current_surveys.keys() if s not in user_surveys]	
-		return display.survey_list(user_surveys,other_surveys)	
+		return [display.survey_list(user_surveys,other_surveys)]
 	
 	################  REPORT METHODS
 	
@@ -426,28 +458,30 @@ class Sleek4Slack(Sleek):
 		survey_id = tokens[1]
 		#if ok err_msg will be empty
 		err_msg = self.__is_valid_survey(user_id, survey_id)
-		if len(err_msg)>0: return err_msg
+		if len(err_msg)>0: return [err_msg]
 		try:
 			rep = self.backend.get_report(user_id, survey_id)
 			if len(rep) == 0:
-				return out.REPORT_EMPTY.format(survey_id.upper())
-			return [self.ack(), display.report(self.current_surveys[survey_id], rep)]
+				return [out.REPORT_EMPTY.format(survey_id.upper())]
+			notez = self.backend.get_notes(user_id, survey_id)
+			report_attach = display.attach_report(self.current_surveys[survey_id], rep, notez)
+			return [self.ack(), report_attach]
 		except RuntimeError as e:
-			return out.REPORT_FAIL.format(survey_id.upper()) + " [err: {}]".format(str(e))			 	
+			return [out.REPORT_FAIL.format(survey_id.upper()) + " [err: {}]".format(str(e))]
 	
 	def notes(self, tokens, context):
 		user_id = context["user_id"]
 		survey_id = tokens[1]
 		#if ok err_msg will be empty
 		err_msg = self.__is_valid_survey(user_id, survey_id)
-		if len(err_msg)>0: return err_msg
+		if len(err_msg)>0: return [err_msg]
 		try:
 			rep = self.backend.get_notes(user_id, survey_id)
 			if len(rep) == 0:
-				return out.NOTES_EMPTY.format(survey_id.upper())
+				return [out.NOTES_EMPTY.format(survey_id.upper())]
 			return [self.ack(), display.notes(survey_id, rep)]
 		except RuntimeError as e:
-			return out.REPORT_FAIL.format(survey_id.upper()) + " [err: {}]".format(str(e))			 	
+			return [out.REPORT_FAIL.format(survey_id.upper()) + " [err: {}]".format(str(e))]
 
 	################  REMINDER METHODS
 	
@@ -472,11 +506,11 @@ class Sleek4Slack(Sleek):
 		#check if user can add reminder to this survey
 		#if ok err_msg will be empty
 		err_msg = self.__is_valid_survey(user_id, survey_id)
-		if len(err_msg)>0: return err_msg
+		if len(err_msg)>0: return [err_msg]
 		if tokens[2] == "remove":			
 			#remove reminder schedule 
 			if not self.backend.set_reminder(user_id, survey_id, None):
-				return out.REMINDER_FAIL.format(survey_id)
+				return [out.REMINDER_FAIL.format(survey_id)]
 			#remove reminder triggers
 			self.__schedule_reminder(user_id, survey_id, None)			
 			return [self.ack(), out.REMINDER_REMOVE_OK.format(survey_id.upper())]				
@@ -487,7 +521,7 @@ class Sleek4Slack(Sleek):
 				if   "am" in t:	am_schedule = self.__get_time(t)
 				elif "pm" in t: pm_schedule = self.__get_time(t)						
 			except RuntimeError as e:
-				return str(e)
+				return [str(e)]
 		#if no valid schedules were provided, leave immediatelly
 		if am_schedule is None and pm_schedule is None: return [out.REMINDER_FAIL.format(survey_id), "invalid schedules"]	
 		#else, set new reminders
@@ -513,83 +547,25 @@ class Sleek4Slack(Sleek):
 			return [out.REMINDER_FAIL.format(survey_id), "??"]
 
 	################ SLACK API METHODS	
-	def post(self, channel, message, ts=None):
-		print u"[posting:\"{}\" to channel {}]".format(message,channel)
+	def post(self, channel, message, ts=None, attach=None):		
+		print u"[posting:\"{}\" to channel {}]".format(message,channel)		
 		if ts is not None:
 			resp = self.slack_client.api_call("chat.postMessage",
 	  					 channel=channel,
 	  					 as_user=True,
 	  					 thread_ts=ts,
-	  					 text=message)
+	  					 text=message,
+	  					 attachments=attach)
 		else:
 			resp = self.slack_client.api_call("chat.postMessage",
 	  					 channel=channel,
 	  					 as_user=True,	  					 
-	  					 text=message)
+	  					 text=message,
+	  					 attachments=attach)
 		
 		if not resp.get("ok"): print u"\033[31m[error: {}]\033[0m".format(resp["error"])
 
-	# # def post_attach(self, channel, message, ts=None):
-	# 	print u"[posting:\"{}\" to channel {}]".format(message,channel)
-		
-	# 	q =  [
-	# 		{
-	# 		"fallback": "Required plain-text summary of the attachment.",
-	# 		"color": "#36a64f",
-	# 		"pretext": "Optional text that appears above the attachment block",
-	# 		# "author_name": "Bobby Tables",
-	# 		# "author_link": "http://flickr.com/bobby/",
-	# 		# "author_icon": "http://flickr.com/icons/bobby.jpg",
-	# 		# "title": "Slack API Documentation",
-	# 		# "title_link": "https://api.slack.com/",
-	# 		"text": "Optional text that appears within the attachment",
-	# 		"fields": [
-	# 					{
-	# 					    "title": "Bagulho",
-	# 					    "value": "Daquels",
-	# 					    "short": False
-	# 					},
-	# 					{
-	# 					    "title": "Belinhas",
-	# 					    "value": "da Cara",
-	# 					    "short": False
-	# 					},
-	# 					{
-	# 					    "title": "Priority",
-	# 					    "value": "High",
-	# 					    "short": True
-	# 					},
-	# 					{
-	# 					    "title": "Priority",
-	# 					    "value": "`Low`",
-	# 					    "short": True
-	# 					},
-	# 					{						 
-	# 					    "value": "*High*",
-	# 					    "short": True
-	# 					},
-	# 					{						 
-	# 					    "value": "_Low_",
-	# 					    "short": True
-	# 					}
-	# 		],
-	# 		"image_url": "http://my-website.com/path/to/image.jpg",
-	# 		"thumb_url": "http://example.com/path/to/thumb.png",
-	# 		"footer": "Slack API",
-	# 		"footer_icon": "https://platform.slack-edge.com/img/default_application_icon.png",
-	# 		"ts": 123456789
-	# 		}
-	# 	]
-
-		
-	# 	resp = self.slack_client.api_call("chat.postMessage",
- #  					 channel=channel,
- #  					 as_user=True,  		
- #  					 text=message,
- #  					 attachments=q)
-		
-	# 	if not resp.get("ok"): print u"\033[31m[error: {}]\033[0m".format(resp["error"])
-
+	
 	def get_slackers(self):
 		resp = self.slack_client.api_call("users.list")
 		users = {}
@@ -624,39 +600,3 @@ class Sleek4Slack(Sleek):
 			 dm_ids = {r["id"]:r["user"] for r in resp["ims"] if not r["is_user_deleted"]}
 			 return dm_ids
 	
-
-	# question =  [
-  #       {
-  #           "text": "Last night my sleep was",
-  #           "fallback": "Your sleep last night",
-  #           "callback_id": "sleep_checkin",
-  #           "color": "#3AA3E3",
-  #           "attachment_type": "default",
-  #           "actions": [
-  #               {
-  #                   "name": "sleep",
-  #                   "text": "Great",
-  #                   "type": "button",
-  #                   "value": "great"
-  #               },
-  #               {
-  #                   "name": "sleep",
-  #                   "text": "Just OK",
-  #                   "type": "button",
-  #                   "value": "ok"
-  #               },
-  #               {
-  #                   "name": "sleep",
-  #                   "text": "Awful",
-  #                   "style": "danger",
-  #                   "type": "button",
-  #                   "value": "awful",
-  #                   "confirm": {
-  #                       "title": "Are you sure?",
-  #                       "text": "text goes here",
-  #                       "ok_text": "Yes",
-  #                       "dismiss_text": "No"}
-  #               }
-  #           		]
-  #       	}
-  #   	]

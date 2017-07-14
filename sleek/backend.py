@@ -57,6 +57,7 @@ class LocalBackend(object):
 			os.remove(self.DB_path)
 		except:
 			pass
+
 		db = sqlite3.connect(self.DB_path)
 		cursor = db.cursor()	
 		#create users table

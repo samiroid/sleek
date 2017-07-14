@@ -80,9 +80,9 @@ class Sleek(object):
 
 	def chat(self, tokens, context):				
 		if tokens[0] in self.__greets:		
-			return self.greet()
+			return [self.greet()]
 		elif "help" in tokens:
-			return self.help()
+			return [self.help()]
 		else:
-			return self.nack()	
+			return [self.nack()]
 	
