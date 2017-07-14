@@ -66,8 +66,8 @@ class Sleek(object):
 	def ack(self):
 		return self.__get_rand(self.__acks)
 
-	def announce(self):
-		return self.__announce
+	def announce(self, name):
+		return self.__announce.format(name)
 
 	def greet(self):
 		return self.__get_rand(self.__greets)
