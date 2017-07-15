@@ -18,11 +18,16 @@ def load_surveys(backend, survey_path):
 			continue	
 		try:		
 			with open(path, 'r') as f:					
-				survey = json.load(f)				
+				try:
+					survey = json.load(f)				
+				except ValueError:
+					print "invalid json @{}".format(fname)
+					continue
 				try:
 					backend.create_survey(survey)			
 				except RuntimeError as e:
 					print e
+
 		except IOError:
 			ignored.append(path)	
 	if len(ignored) > 0:

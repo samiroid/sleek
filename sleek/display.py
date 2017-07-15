@@ -171,17 +171,38 @@ def attach_survey(survey):
     		   "color": "good",
     		   "title": "{} survey".format(survey["id"].upper()),                    		  
     	       "fields": fields,
+           		"callback_id": "wopr_game",
+	            "actions": [
+			                {
+			                    "name": "game",
+			                    "text": "Chess",
+			                    "type": "button",
+			                    "value": "chess"
+			                },
+			                {
+			                    "name": "game",
+			                    "text": "Falken's Maze",
+			                    "type": "button",
+			                    "value": "maze"
+			                },
+			                {
+			                    "name": "game",
+			                    "text": "Thermonuclear War",
+			                    "style": "danger",
+			                    "type": "button",
+			                    "value": "war",
+			                    "confirm": {
+			                        "title": "Are you sure?",
+			                        "text": "Wouldn't you prefer a good game of chess?",
+			                        "ok_text": "Yes",
+			                        "dismiss_text": "No"
+			                    }
+			                }
+			            ],
     	       "mrkdwn_in": ["text","pretext","title","fields"] 
     	      }
     	    ]
 	
-
-
-
-	
-
-
-
 
 def attach_survey_list( user_surveys, other_surveys):	
 	active_list = []
