@@ -71,6 +71,7 @@ class Sleek4Slack(Sleek):
 		self.slack_client = None
 		self.team_id = None
 		self.bot_name = None
+		self.team_name = None 
 
 
 	#################################################################
@@ -128,6 +129,7 @@ class Sleek4Slack(Sleek):
 		self.id2user  = {uid:uname for uname, uid in self.slackers.items()}
 		self.team_id  = team_id
 		self.bot_name = bot_name
+		self.team_name = self.get_team_name()
 		#open direct messages		
 		self.direct_messages = self.current_dms() #{self.open_dm(u):u for u in self.slackers.values() if u is not None}		
  		if greet_channel is not None: 
@@ -194,7 +196,7 @@ class Sleek4Slack(Sleek):
 		   					reply = "```[FATAL ERROR: {}]```".format(e)
 		   					self.post(channel, reply, thread_ts)
 
-				print "[waiting for @{}...]".format(self.bot_name)				
+				print "[waiting for @{}...|{}]".format(self.bot_name, self.team_name)				
 				time.sleep(READ_WEBSOCKET_DELAY)
 
 	def parse_answer(self, survey_thread, text):
@@ -449,8 +451,7 @@ class Sleek4Slack(Sleek):
 		# ---- LIST SURVEYS ----
 		elif action == "list": 
 			replies = self.cmd_list(tokens, context)	
-			attach = replies.pop()
-			pprint.pprint(attach)			
+			attach = replies.pop()			
 			self.post(channel, "", thread_ts, attach=attach)
 
 		# ---- SHOW REPORT ----
@@ -592,6 +593,15 @@ class Sleek4Slack(Sleek):
 			return None
 		else:
 			return resp["channel"]["id"]
+	
+	def get_team_name(self):
+		resp = self.slack_client.api_call("team.info") 
+		if not resp.get("ok"): 			
+			print "\033[31m[error: {}]\033[0m".format(resp["error"])
+			return None
+		else:
+			return resp["team"]["name"]
+
 
 	def current_dms(self):
 		resp = self.slack_client.api_call("im.list")		
