@@ -4,12 +4,11 @@
 
 from datetime import datetime
 import json
-from kafka import KafkaProducer
 import os
-import pprint
 import sqlite3
 
-
+# import pprint
+# from kafka import KafkaProducer
 
 # try:
 # 	from ipdb import set_trace
@@ -239,36 +238,36 @@ class LocalBackend(object):
 		sql = '''SELECT ts, notes FROM {} WHERE user_id=? AND notes IS NOT NULL order by ts DESC'''.format(survey_table)
 		return self.__get(sql,(user_id,))
 
-class KafkaBackend(LocalBackend):
-	def __init__(self, cfg, create=False):		
-		pprint.pprint(cfg)		
-		self.kafka_topic = cfg["kafka_topic"]
-		self.team_id = cfg["team_id"]
-		kafka_servers = cfg["kafka_servers"].split(",")
-		self.kafka = KafkaProducer(bootstrap_servers=kafka_servers)
-		LocalBackend.__init__(self, cfg, create)
+# class KafkaBackend(LocalBackend):
+# 	def __init__(self, cfg, create=False):		
+# 		pprint.pprint(cfg)		
+# 		self.kafka_topic = cfg["kafka_topic"]
+# 		self.team_id = cfg["team_id"]
+# 		kafka_servers = cfg["kafka_servers"].split(",")
+# 		self.kafka = KafkaProducer(bootstrap_servers=kafka_servers)
+# 		LocalBackend.__init__(self, cfg, create)
 
-	def save_answer(self, user_id, survey_id, answer):
-		r = LocalBackend.save_answer(self, user_id, survey_id, answer)			
-		dt = datetime.strptime(answer["ts"] , '%Y-%m-%d %H:%M')
-		timestamp = (dt - datetime(1970, 1, 1)).total_seconds()	
-		del answer["ts"]
-		if r > 0:
-			payload = {
-			"teamId": self.team_id,
-			"userId": user_id,
-			"ts": timestamp,
-			"surveyId": survey_id,
-			"responses": answer
-			}
-			print "[posting to kafka: {0}]".format(payload)
-			self.post_kafka(json.dumps(payload))
-		return r	
+# 	def save_answer(self, user_id, survey_id, answer):
+# 		r = LocalBackend.save_answer(self, user_id, survey_id, answer)			
+# 		dt = datetime.strptime(answer["ts"] , '%Y-%m-%d %H:%M')
+# 		timestamp = (dt - datetime(1970, 1, 1)).total_seconds()	
+# 		del answer["ts"]
+# 		if r > 0:
+# 			payload = {
+# 			"teamId": self.team_id,
+# 			"userId": user_id,
+# 			"ts": timestamp,
+# 			"surveyId": survey_id,
+# 			"responses": answer
+# 			}
+# 			print "[posting to kafka: {0}]".format(payload)
+# 			self.post_kafka(json.dumps(payload))
+# 		return r	
 
-	def post_kafka(self, payload):						
-		sent = self.kafka.send(self.kafka_topic, payload)		
-		self.kafka.flush()
-		print sent
+# 	def post_kafka(self, payload):						
+# 		sent = self.kafka.send(self.kafka_topic, payload)		
+# 		self.kafka.flush()
+# 		print sent
 
 		
 

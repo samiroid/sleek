@@ -90,7 +90,7 @@ def attach_answer(a,survey_id):
 	for f,v in a.items():
 		if f=="notes":continue		
 		field_list.append({                    
-                    "value": "> *{}*".format(f),
+                    "value": "*{}*".format(f),
                     "short": True
                 })
 		field_list.append({                    
@@ -103,6 +103,7 @@ def attach_answer(a,survey_id):
         		 "pretext": "These were you responses",
         		 "title":"{} survey".format(survey_id.upper()),
         	     "fields":field_list,
+        	     "text":" ",
         	     "mrkdwn_in": ["text","pretext","title","fields"]
 		 				}]
 
@@ -155,96 +156,77 @@ def attach_report(survey, data, notes):
 
 
 def attach_survey(survey):
-	fields = []
+	attaches = []	
+	
 	for q in survey["questions"]:			
-		fields.append({                    
-                    "value": ">*{}*: _{}_".format(q["q_id"], q["question"]),
+		question = [{                    
+                    "value": "*{}*: _{}_".format(q["q_id"], q["question"]),
                     "short": False
-                })		
+                }]		
+		actions = []
 		for e,c in enumerate(q["choices"]):
-			fields.append({                    
-                    "value": "`{}`  {}".format(ascii_letters[e], c),
-                    "short": True
-                })		
+			actions.append({
+		                    "name": q["q_id"],
+		                    "text": "{}".format(c),
+		                    "type": "button",
+		                    "value":"{}".format(c)
+			                })			
 
-	return [ { "fallback": "Survey",
-    		   "color": "good",
-    		   "title": "{} survey".format(survey["id"].upper()),                    		  
-    	       "fields": fields,
-           		"callback_id": "wopr_game",
-	            "actions": [
-			                {
-			                    "name": "game",
-			                    "text": "Chess",
-			                    "type": "button",
-			                    "value": "chess"
-			                },
-			                {
-			                    "name": "game",
-			                    "text": "Falken's Maze",
-			                    "type": "button",
-			                    "value": "maze"
-			                },
-			                {
-			                    "name": "game",
-			                    "text": "Thermonuclear War",
-			                    "style": "danger",
-			                    "type": "button",
-			                    "value": "war",
-			                    "confirm": {
-			                        "title": "Are you sure?",
-			                        "text": "Wouldn't you prefer a good game of chess?",
-			                        "ok_text": "Yes",
-			                        "dismiss_text": "No"
-			                    }
-			                }
-			            ],
-    	       "mrkdwn_in": ["text","pretext","title","fields"] 
+		x = { "fallback": "Survey",
+    		   "color": "good",    		   
+    	        "fields": question,
+           		"callback_id": survey["id"],
+	            "actions": actions,
+    	       "mrkdwn_in": ["text","pretext","title","fields","buttons","actions"] 
     	      }
-    	    ]
+		attaches.append(x)
+		
+	return attaches
 	
 
 def attach_survey_list( user_surveys, other_surveys):	
 	active_list = []
-	active_list.append({                    
-                    "value": "*Survey*",
-                    "short": True
-                })
-		
-	active_list.append({                    
-                "value": "*Reminders*",
-                "short": True
-            })
-	for survey, reminders in user_surveys.items():		
-		#format reminder schedules
-		rems = ""
-		for r in reminders: 
-			if r is not None:
-				rems+="`{}`\t".format(r)
-		#if this survey has reminders put survey and reminders side by side
-		if len(rems)>0:
-			active_list.append({                    
-                    "value": ">*{}*".format(survey),
-                    "short": True
-                })
-		
-			active_list.append({                    
-	                    "value": "{}".format(rems),
+	attach = []	
+	if len(user_surveys) > 0:
+		active_list.append({                    
+	                    "value": "*Survey*",
 	                    "short": True
 	                })
-		else:
-			active_list.append({                    
-                    "value": ">*{}*".format(survey),
-                    "short": False
-                })
+			
+		active_list.append({                    
+	                "value": "*Reminders*",
+	                "short": True
+	            })
+		for survey, reminders in user_surveys.items():		
+			#format reminder schedules
+			rems = ""
+			for r in reminders: 
+				if r is not None:
+					rems+="`{}`\t".format(r)
+			#if this survey has reminders put survey and reminders side by side
+			if len(rems)>0:
+				active_list.append({                    
+	                    "value": ">*{}*".format(survey),
+	                    "short": True
+	                })
+			
+				active_list.append({                    
+		                    "value": "{}".format(rems),
+		                    "short": True
+		                })
+			else:
+				active_list.append({                    
+	                    "value": ">*{}*".format(survey),
+	                    "short": False
+	                })
 
-	#build attach
-	attach = [{ "fallback": "reponse",
-        		 "color": "good",  
-        		 "title": "Subscribed Surveys",
-        	     "fields":active_list,
-        	     "mrkdwn_in": ["text","pretext","title","fields"]
-		 				}]
+		#build attach
+		attach.append({ "fallback": "reponse",
+	        		 "color": "good",  
+	        		 "title": "Subscribed Surveys",
+	        	     "fields":active_list,
+	        	     "mrkdwn_in": ["text","pretext","title","fields"]
+			 				})
 	inactive_list = []
 	for survey in other_surveys:
 		inactive_list.append({                    

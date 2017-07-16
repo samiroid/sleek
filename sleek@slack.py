@@ -28,34 +28,31 @@ def get_api_token(key, method="env"):
 if __name__ == "__main__":	
 	parser = get_parser()
 	args = parser.parse_args()	
-	confs = json.load(open(args.cfg, 'r'))	 	
-	hello_world =  "[launching Sleek4Slack]"
+	confs = json.load(open(args.cfg, 'r'))	 		
 	
 	if confs["backend_type"]=="local":
-		localdb = sleek.LocalBackend(confs, create=args.init)
+		db = sleek.LocalBackend(confs, create=args.init)
 	elif confs["backend_type"]=="kafka":
-		localdb = sleek.KafkaBackend(confs, create=args.init)		
+		db = sleek.KafkaBackend(confs, create=args.init)		
 	else:
 		raise NotImplementedError
 
 	if args.surveys is not None:
-		sleek.load_surveys(localdb, args.surveys)
-	elif args.connect is not None:		
-		print hello_world
-		chat_bot = sleek.Sleek4Slack(db=localdb)
+		sleek.load_surveys(db, args.surveys)
+	elif args.connect is not None:				
+		chat_bot = sleek.Sleek4Slack(db=db)
 		api_token = get_api_token(confs["api_token"],confs["get_token_from"])
 		bot_name  = confs["bot_name"]
-		team_id = confs["team_id"]
-		greet_channel = ""
-		try:
-			greet_channel = confs["greet_channel"]
-			print "[greeting {}]".format(greet_channel)
-		except KeyError:
-			print "[no greeting]"
-			
+		greet_channel = confs["greet_channel"]
+		if confs["survey_mode"]	== "interactive":
+			interactive=True
+		elif confs["survey_mode"] == "text":
+			interactive=False
+		else:
+			raise NotImplementedError
+		chat_bot.connect(api_token, bot_name)				
 		if len(greet_channel) > 0:
-			chat_bot.connect(api_token, bot_name, team_id, greet_channel=greet_channel, verbose=args.verbose, dbg=args.dbg)			
-		else:	
-			chat_bot.connect(api_token, bot_name, team_id, verbose=args.verbose, dbg=args.dbg)				
+			chat_bot.greet_channel(greet_channel)		
+		chat_bot.listen(interactive=interactive, verbose=args.verbose, dbg=args.dbg)			
 	else:
 		raise NotImplementedError("Nothing to do. You can either load surveys or connect to a Slack")

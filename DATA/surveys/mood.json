@@ -1,0 +1,5 @@
+{ "id": "mood",
+  "questions": [  {"q_id": "mood_general",
+				"question": "How would you rate your mood right now?",
+				"choices": ["Extremely Negative", "Somewhat Negative","Slightly Negative", "Neutral", "Slightly Positive", "Somewhat Positive","Extremely Positive"] } ]
+}	

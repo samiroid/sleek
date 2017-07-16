@@ -4,10 +4,11 @@ class Sleek(object):
 	
 	default_cfg={
 				"announce": "Hello I am a Sleek chatbot but I can't do much yet...",
-				"ack": ["ok","got it!","sure","no problem"],
-				"greet": ["hi","yo","hello :)"],
+				"ack": ["ok","got it!","sure","no problem",":+1:"],
+				"greet": ["hi","yo","hello","hey"],
 				"help": "We all need a little help sometimes :)",	
-				"nack": ["sorry, I didn't get that", "I don't understand that command","!?"]
+				"nack": ["sorry, I didn't get that", "I don't understand that command","!?"],
+				"oops": ["oops", "oh oh", "ergh"]
 				}
 
 	
@@ -18,6 +19,7 @@ class Sleek(object):
 		self.__nacks = None
 		self.__help = None
 		self.__announce = None
+		self.__oops = None
 
 		if cfg is None:			
 			self.__load_cfg(Sleek.default_cfg)
@@ -56,6 +58,11 @@ class Sleek(object):
 		except KeyError:
 			self.__announce = Sleek.default_cfg["announce"]
 
+		try:
+			self.__oops = cfg["oops"]
+		except KeyError:
+			self.__oops = Sleek.default_cfg["oops"]
+
 	def __get_rand(self, obj):
 		"""
 			return a random element from a list
@@ -77,6 +84,9 @@ class Sleek(object):
 
 	def nack(self):
 		return self.__get_rand(self.__nacks)
+
+	def oops(self):
+		return self.__get_rand(self.__oops)
 
 	def chat(self, tokens, context):				
 		if tokens[0] in self.__greets:		

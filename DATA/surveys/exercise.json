@@ -1,0 +1,6 @@
+{ "id": "exercise",
+  "questions": [  {"q_id": "exercise_count",
+				"question": "Have you exercised today?",
+				"choices": ["Yes","No"] } ]
+}
+
