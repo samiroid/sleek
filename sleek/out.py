@@ -20,6 +20,7 @@ ANSWERS_SAVE_OK = u"Answer saved :+1:"
 ANSWERS_SAVE_FAIL = u"Error saving answer :cold_sweat:"
 # KL Changed error to Error in ANSWERS_SAVE_FAIL
 ANSWERS_CONFIRM = u"If you are happy with your responses, type `ok`, otherwise enter a new response. \nType `notes` to add a short note to this answer. \nYou can also `cancel` this answer. "
+NOTE_CONFIRM = u"If you like your note, type `ok`, otherwise take your time and write a new note :kissing_heart: \nYou can also `cancel` this survey. "
 # KL Changed spelling of first 'responses', and changed 'hit' to 'type'
 ANSWERS_DELETE_OK = u"All of your answers to survey _{}_ are gone :+1:"
 # KL Changed to 'All of your' and added emoji.

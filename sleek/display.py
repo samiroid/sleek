@@ -82,7 +82,7 @@ def survey_list( user_surveys, other_surveys):
 	display = u"*Your Surveys*\n{}\n{}"
 	return display.format("\n".join(us),"\n".join(ot))
 
-def attach_answer(a,survey_id):
+def attach_answer(a,survey_id, ok_button=False, notes_button=False):
 	notes = None
 	if "notes" in a: notes = a["notes"]			
 	
@@ -98,21 +98,47 @@ def attach_answer(a,survey_id):
                     "short": True
                 })
 
+	actions = [{"name": "cancel",
+		        "text": "cancel",
+		        "type": "button",		        
+		        "value":"cancel", 
+		        "style":"danger"}]
+	if ok_button:
+		actions.append({"name": "ok",
+		        		"text": "ok",
+		        		"type": "button",	
+		        		"style": "primary",	        
+		        		"value":"ok" })
+	if notes_button:
+		actions.append({"name": "notes",
+		        		"text": "notes",
+		        		"type": "button",		        
+		        		"value":"notes" })
+
 	attach = [{ "fallback": "reponse",
         		 "color": "good",		        		          		 
         		 "pretext": "These were you responses",
         		 "title":"{} survey".format(survey_id.upper()),
+        		 "callback_id":"answer",
         	     "fields":field_list,
-        	     "text":" ",
+        	     "text":" ",        	     
         	     "mrkdwn_in": ["text","pretext","title","fields"]
 		 				}]
 
 	if notes is not None:
 		attach.append({ "fallback": "notes",
         		 		"color": "warning",	
-        		 		"title": "notes",	        		          		 
+        		 		"title": "notes",	        
+        		 		"callback_id":"answer",          		 
         		 		"text": "_{}_".format(notes),        	     		
-        	     		"mrkdwn_in": ["text","pretext","title","fields"]
+        	     		"mrkdwn_in": ["text","pretext","title","fields"]        	     		
+		 				})
+	
+	attach.append({ "fallback": "notes",
+        		 		"color": "#CCCCCC",	        		 		
+        		 		"callback_id":"answer",          		         		 		
+        	     		"mrkdwn_in": ["text","pretext","title","fields"],
+        	     		"actions":actions        	     		
 		 				})
 	
 	return attach
@@ -157,8 +183,8 @@ def attach_report(survey, data, notes):
 
 def attach_survey(survey):
 	attaches = []	
-	
-	for q in survey["questions"]:			
+
+	for q_num, q in enumerate(survey["questions"]):			
 		question = [{                    
                     "value": "*{}*: _{}_".format(q["q_id"], q["question"]),
                     "short": False
@@ -166,10 +192,10 @@ def attach_survey(survey):
 		actions = []
 		for e,c in enumerate(q["choices"]):
 			actions.append({
-		                    "name": q["q_id"],
+		                    "name": q_num+1,
 		                    "text": "{}".format(c),
 		                    "type": "button",
-		                    "value":"{}".format(c)
+		                    "value":e+1
 			                })			
 
 		x = { "fallback": "Survey",
@@ -179,8 +205,7 @@ def attach_survey(survey):
 	            "actions": actions,
     	       "mrkdwn_in": ["text","pretext","title","fields","buttons","actions"] 
     	      }
-		attaches.append(x)
-		
+		attaches.append(x)		
 	return attaches
 	
 

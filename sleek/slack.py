@@ -110,12 +110,11 @@ class Sleek4Slack(Sleek):
 		while True:		
 			reply = None	
 			for output in self.slack_client.rtm_read():					
-				if output["type"] != "message" or 'bot_id' in output: continue
-				if verbose and not 'bot_id' in output:
-					print "DBG:\n"
+				if verbose and output["type"] == "message": 
 					pprint.pprint(output)
+				if output["type"] != "message": continue								
 				try:
-					text = output['text'].lower() 
+					text = output['text'].lower() 					
 					ts = output['ts']
 					channel = output['channel']
 				   	user = output['user']		   	
@@ -127,15 +126,24 @@ class Sleek4Slack(Sleek):
 					continue			
 				context = {"user_id":user, "ts":ts, "channel":channel, "thread_ts":thread_ts}
 			   	#only react to ongoing survey threads 
-				if thread_ts in self.survey_threads:   	
+				if thread_ts in self.survey_threads:
+					if 'bot_id' in output:
+						if text != "pong":
+							continue   	
+						else:
+							user, survey, channel, response = self.survey_threads[thread_ts]
+							context["user_id"] = user
+							context["channel"] = channel							
+							text = output["attachments"][0]["text"]							
 					#remove bot mention
+					pprint.pprint(output)
    					text = text.replace(hat_bot,"").strip()			
    					if self.interactive:
    						self.interactive_survey(text, context)
 					else:   							
 			   			self.run_survey(text, context)	   			
 				#or messages directed at the bot						   	
-				elif hat_bot in text or channel in self.direct_messages:
+				elif hat_bot in text or channel in self.direct_messages and 'bot_id' not in output:					
 					#remove bot mention
 			   		text = text.replace(hat_bot,"").strip()			   					   		
 					#if user is not talking on a direct message with sleek
@@ -151,42 +159,14 @@ class Sleek4Slack(Sleek):
 			   				self.process(text, context)
 		   				except Exception as e:	   					
 		   					reply = "```[FATAL ERROR: {}]```".format(e)
-		   					self.post(channel, reply, thread_ts)
+		   					post_slack(self.slack_client, channel, reply, thread_ts)
 
 				print "[waiting for @{}...|{}]".format(self.bot_name, team_name)				
 				time.sleep(READ_WEBSOCKET_DELAY)
 
-	def parse_interactive_answer(self, survey_thread, text):
-		open_user, open_survey, open_response = self.survey_threads[survey_thread]				
-		if open_response is not None: 
-			response = open_response
-		else:
-			#response dictionary
-			response = {}
-		if "notes" in open_response:
-			response["notes"] = text
-		else:
-			#otherwise these should be answers to the survey
-			questions = self.current_surveys[open_survey]["questions"]		
-			tokens = text.split()			
-			if len(tokens) != 2:
-				return [out.ANSWERS_INVALID]
-			q_index, answer = tokens
-			question = questions[q_index]
-			q_id = question["q_id"]
-			choices = question["choices"]
-			if answer not in range(len(choices)):
-				return [out.ANSWERS_BAD_CHOICE.format(q["q_id"])]
-			else:
-				response[q_id] = choices[answer]		
-
-		#cache this response
-		self.survey_threads[survey_thread] = (open_user, open_survey, response)		
-		attach = display.attach_answer(response, open_survey)		
-		return [out.ANSWERS_CONFIRM, attach]
-
+	
 	def remind_user(self, user_id, survey_id, period):
-		self.post(user_id, out.REMIND_SURVEY.format(survey_id,period))				
+		post_slack(self.slack_client, user_id, out.REMIND_SURVEY.format(survey_id,period))				
 		
 	def load_reminders(self):
 		data = self.backend.get_reminders()
@@ -406,42 +386,45 @@ class Sleek4Slack(Sleek):
 				post_slack(self.slack_client, channel, error, ts=thread_ts)		
 
 	def cmd_survey(self, tokens, context):
-		user_id = context["user_id"]
-		survey_id = tokens[1]
+		user_id = context["user_id"]		
 		channel = context["channel"]	
 		thread_ts = context["thread_ts"]	
-		#check if user can open this survey
-		#if ok err_msg will be empty
-		error = self.__is_valid_survey(user_id, survey_id)
-		if len(error) == 0: 			
-			#register this thread as an open survey
-			self.survey_threads[context["thread_ts"]] = (user_id, survey_id, None)
-			s = self.current_surveys[survey_id]		
-			post_slack(self.slack_client, channel, self.ack(), ts=thread_ts)			
-			if self.interactive:
-				attach = display.attach_survey(s)
-				post_slack(self.slack_client, channel, "", ts=thread_ts, attach=attach)							
-			else:
-				survey = display.survey(s)
-				post_slack(self.slack_client, channel, survey, ts=thread_ts)							
+		if len(tokens) < 2: 			
+			post_slack(self.slack_client, channel, out.MISSING_PARAMS, ts=thread_ts) 
 		else:
-			post_slack(self.slack_client, channel, self.oops(), ts=thread_ts)			
-			post_slack(self.slack_client, channel, error, ts=thread_ts)		
+			survey_id = tokens[1]
+			#check if user can open this survey
+			#if ok err_msg will be empty
+			error = self.__is_valid_survey(user_id, survey_id)
+			if len(error) == 0: 			
+				#register this thread as an open survey
+				self.survey_threads[context["thread_ts"]] = (user_id, survey_id, channel,  None)
+				s = self.current_surveys[survey_id]		
+				post_slack(self.slack_client, channel, self.ack(), ts=thread_ts)			
+				if self.interactive:
+					attach = display.attach_survey(s)
+					post_slack(self.slack_client, channel, "", ts=thread_ts, attach=attach)							
+				else:
+					survey = display.survey(s)
+					post_slack(self.slack_client, channel, survey, ts=thread_ts)							
+			else:
+				post_slack(self.slack_client, channel, self.oops(), ts=thread_ts)			
+				post_slack(self.slack_client, channel, error, ts=thread_ts)		
 	
 	def greet_user(self, text, context):
 		#open new DM
 		user = context["user_id"]		
 		channel = context["channel"]
-		new_dm = self.open_dm(user)						
+		new_dm = open_dm(self.slack_client, user) 
 		self.direct_messages[new_dm] = user					
 		try:
 			username = self.id2user[user]
 		except KeyError:
 			username=""
 		#greet user and move conversation to a private chat
-		self.post(channel, out.GREET_USER.format(self.greet(), username))		
+		post_slack(self.slack_client, channel, out.GREET_USER.format(self.greet(), username))		
 		#say hi on the new DM		
-		self.post(new_dm, "> *you said*: _{}_\n\n".format(text))
+		post_slack(self.slack_client, new_dm, "> *you said*: _{}_\n\n".format(text))
 		context["channel"] = new_dm
 		context["thread_ts"] = None
 		
@@ -501,7 +484,7 @@ class Sleek4Slack(Sleek):
 			post_slack(self.slack_client, channel, self.ack(), ts=thread_ts)
 			post_slack(self.slack_client, channel, out.SURVEY_CANCELED, ts=thread_ts)
 		elif tokens[0] == "ok":
-			open_user, open_survey, response = self.survey_threads[thread_ts] 			
+			open_user, open_survey, open_channel, response = self.survey_threads[thread_ts] 			
 			if response is None: 
 				post_slack(self.slack_client, channel, self.oops(), ts=thread_ts)
 				post_slack(self.slack_client, channel, out.ANSWERS_INVALID, ts=thread_ts)
@@ -515,18 +498,15 @@ class Sleek4Slack(Sleek):
 					del self.survey_threads[thread_ts]
 					post_slack(self.slack_client, channel, out.ANSWERS_SAVE_OK, ts=thread_ts)
 		elif tokens[0] == "notes":
-			open_user, open_survey, response = self.survey_threads[thread_ts] 
+			open_user, open_survey, open_channel, response = self.survey_threads[thread_ts] 
 			#add a placeholder for the notes on the response
 			response["notes"]=""
-			self.survey_threads[thread_ts] = (open_user, open_survey, response)
+			self.survey_threads[thread_ts] = (open_user, open_survey, channel, response)
 			post_slack(self.slack_client, channel, self.ack(), ts=thread_ts)
 			post_slack(self.slack_client, channel, out.ANSWERS_ADD_NOTE, ts=thread_ts)						
 		else:
-			#parse the answer
-			try:
-				open_user, open_survey, open_response = self.survey_threads[thread_ts]		
-			except KeyError:
-				open_user, open_survey, open_response = None
+			#parse the answer			
+			open_user, open_survey, open_channel, open_response = self.survey_threads[thread_ts]					
 			#case where the user already answered the questions and 
 			#is adding a note
 			if open_response is not None and "notes" in open_response:
@@ -560,7 +540,7 @@ class Sleek4Slack(Sleek):
 							response[q_id] = choices[a]		
 			if len(error) == 0:
 				#cache this response
-				self.survey_threads[thread_ts] = (open_user, open_survey, response)		
+				self.survey_threads[thread_ts] = (open_user, open_survey, open_channel, response)		
 				attach = display.attach_answer(response, open_survey)		
 				post_slack(self.slack_client, channel, "", ts=thread_ts, attach=attach)
 				post_slack(self.slack_client, channel, out.ANSWERS_CONFIRM, ts=thread_ts)					
@@ -571,29 +551,94 @@ class Sleek4Slack(Sleek):
    		tokens = text.split()
    		channel = context["channel"]
    		thread_ts = context["thread_ts"]
+   		error = ""
 		if tokens[0] == "cancel":
 			#remove current thread from open survey threads
-			del self.survey_threads[thread_ts]
-			reply = [self.ack(), out.SURVEY_CANCELED]
+			del self.survey_threads[thread_ts]			
+			post_slack(self.slack_client, channel, self.ack(), ts=thread_ts)
+			post_slack(self.slack_client, channel, out.SURVEY_CANCELED, ts=thread_ts)
 		elif tokens[0] == "ok":
-			#save answer and close survey
-			reply = self.save_answer(thread_ts)
+			open_user, open_survey, open_channel, response = self.survey_threads[thread_ts] 			
+			if response is None: 
+				post_slack(self.slack_client, channel, self.oops(), ts=thread_ts)
+				post_slack(self.slack_client, channel, out.ANSWERS_INVALID, ts=thread_ts)
+			else:
+				ts = datetime.now().strftime('%Y-%m-%d %H:%M')
+				response["ts"]=ts
+				if not self.backend.save_answer(open_user, open_survey, response):			
+					post_slack(self.slack_client, channel, out.ANSWERS_SAVE_FAIL, ts=thread_ts)
+				else:
+					#if saved ok, remove this survey from the open threads
+					del self.survey_threads[thread_ts]
+					post_slack(self.slack_client, channel, out.ANSWERS_SAVE_OK, ts=thread_ts)
 		elif tokens[0] == "notes":
-			open_user, open_survey, response = self.survey_threads[thread_ts] 
+			open_user, open_survey, open_channel, response = self.survey_threads[thread_ts] 
 			#add a placeholder for the notes on the response
 			response["notes"]=""
-			self.survey_threads[thread_ts] = (open_user, open_survey, response)
-			reply = [self.ack(), out.ANSWERS_ADD_NOTE]						
+			self.survey_threads[thread_ts] = (open_user, open_survey, open_channel, response)
+			post_slack(self.slack_client, channel, self.ack(), ts=thread_ts)
+			post_slack(self.slack_client, channel, out.ANSWERS_ADD_NOTE, ts=thread_ts)						
 		else:
-   			reply = self.parse_interactive_answer(thread_ts, text)
-   			if len(reply) > 1:
-   				#ok
-   				attach = reply.pop()   		
-   				self.post(channel, "", thread_ts, attach)
-   				for r in reply: self.post(channel, r, thread_ts)   				
-   				reply = []
-   		
-		for r in reply: self.post(channel, r, thread_ts)
+			#parse the answer						
+			open_user, open_survey, open_channel, open_response = self.survey_threads[thread_ts]		
+			questions = self.current_surveys[open_survey]["questions"]		
+			#case where the user already answered the questions and 
+			#is adding a note
+			if open_response is not None and "notes" in open_response:
+				response = open_response
+				response["notes"] = text				
+			else:
+				#otherwise these should be answers to the survey
+				if open_response is not None:
+					#continue
+					response = open_response
+				else:
+					#this is a brand new answer
+					response = {}				
+				tokens = text.split()			
+				if len(tokens) != 2:
+					error = out.ANSWERS_INVALID
+				if len(error) == 0 :
+					q_index, answer = tokens
+					try:
+						q_index = int(q_index)
+						answer = int(answer)
+					except ValueError:
+						error = out.ANSWERS_INVALID
+					if q_index < 1 or \
+					   q_index > len(questions) or \
+					   answer < 1:
+						error = out.ANSWERS_INVALID					
+				if len(error) == 0 :
+					question = questions[q_index-1]
+					q_id = question["q_id"]
+					choices = question["choices"]
+					#correct for 1-based index
+					answer-=1
+					if answer not in range(len(choices)):
+						error = out.ANSWERS_BAD_CHOICE.format(q_id)
+					else:
+						response[q_id] = choices[answer]												
+			if len(error) == 0:
+				#cache this response
+				self.survey_threads[thread_ts] = (open_user, open_survey, open_channel, response)		
+				#repost the survey
+				survey = self.current_surveys[open_survey]		
+				attach_survey = display.attach_survey(survey)
+				post_slack(self.slack_client, channel, "", ts=thread_ts, attach=attach_survey)							
+				#post the current answers
+				#if the survey is all filled ask to confirm
+				if len(response) == len(questions):
+					answer_attach = display.attach_answer(response, open_survey, ok_button=True, notes_button=True)		
+					post_slack(self.slack_client, channel, out.ANSWERS_CONFIRM, ts=thread_ts, attach=answer_attach)					
+				elif len(response) >= len(questions) and "notes" in response:
+					answer_attach = display.attach_answer(response, open_survey, ok_button=True)		
+					post_slack(self.slack_client, channel, out.NOTE_CONFIRM, ts=thread_ts, attach=answer_attach)					
+				else:
+					attach = display.attach_answer(response, open_survey)		
+					post_slack(self.slack_client, channel, "", ts=thread_ts, attach=attach)
+			else:
+				post_slack(self.slack_client, channel, error, ts=thread_ts)
    		
 	#################################################################
 	# AUX METHODS
