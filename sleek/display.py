@@ -169,7 +169,7 @@ def attach_report(survey, data, notes):
 		df_notes.columns = ["ts","notes"]
 		df_notes['ts'] = pd.to_datetime(df_notes['ts']).dt.strftime("%Y-%m-%d %H:%M")
 		df_notes.set_index('ts', inplace=True)			
-		notez = u"```{}```".format(repr(df_notes))
+		notez = "```{}```".format(repr(df_notes))
 		note_attach = { "fallback": "Survey Notes",
 		        		  "color": "warning",		        		  
 		        		  "title": "Notes",            
