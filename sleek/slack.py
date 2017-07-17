@@ -630,10 +630,12 @@ class Sleek4Slack(Sleek):
 				#if the survey is all filled ask to confirm
 				if len(response) == len(questions):
 					answer_attach = display.attach_answer(response, open_survey, ok_button=True, notes_button=True)		
-					post_slack(self.slack_client, channel, out.ANSWERS_CONFIRM, ts=thread_ts, attach=answer_attach)					
+					post_slack(self.slack_client, channel, "", ts=thread_ts, attach=answer_attach)
+					post_slack(self.slack_client, channel, out.ANSWERS_CONFIRM, ts=thread_ts)
 				elif len(response) >= len(questions) and "notes" in response:
 					answer_attach = display.attach_answer(response, open_survey, ok_button=True)		
-					post_slack(self.slack_client, channel, out.NOTE_CONFIRM, ts=thread_ts, attach=answer_attach)					
+					post_slack(self.slack_client, channel, "", ts=thread_ts, attach=answer_attach)
+					post_slack(self.slack_client, channel, out.NOTE_CONFIRM, ts=thread_ts)
 				else:
 					attach = display.attach_answer(response, open_survey)		
 					post_slack(self.slack_client, channel, "", ts=thread_ts, attach=attach)
