@@ -111,16 +111,20 @@ class Sleek4Slack(Sleek):
 		while True:		
 			reply = None
 			try:
-				slack_data = self.slack_client.rtm_read()									
+				slack_data = self.slack_client.rtm_read()
 			except Exception as e:
 				print "failed to read"
 				print e
 				time.sleep(RECONNECT_WEBSOCKET_DELAY)
 				continue
 			for output in slack_data:				
-				if verbose and output["type"] == "message": 
+				try:
+					msg_type = output["type"]
+					if msg_type != "message": continue					
+				except KeyError:
+					continue								
+				if verbose: 
 					pprint.pprint(output)
-				if output["type"] != "message": continue								
 				try:
 					text = output['text'].lower() 					
 					ts = output['ts']
