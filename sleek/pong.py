@@ -5,28 +5,34 @@ import pprint
 from slackclient import SlackClient
 from pdb import set_trace
 import quinn.loqsmith as loqsmith
+import os
+import sys
 
 LOG = "/tmp/foo.log"
-api_tokens = {"samiroid":"xoxb-212432954930-DoLkGjeqXBSjYz6ikjHKRJOR",
-			  "sleek4":"xoxb-206839775285-0H2SfMdQfHNc5yD7ikDwwoZC"}
-
 api_tokens = {}
 
 def get_api_token(key, method="env"):
 	if method == "env":
 		return os.getenv(key)
-	elif method == "env":
+	elif method == "loqsmith":
 		tok = loqsmith.get_token(key)	
 		return tok.oauth_token.access_token
 	else:
-		raise NotImplementedError
+		raise NotImplementedError, "method {} unknwown".format(method)
 
 def load_tokens():
 	with open("pongconf.txt") as f:
 		f.next()
-		for l in f:
-			team, method, key = l.split()
-			api_token[team] = get_api_token(method, key)
+		for l in f:			
+			cf = l.split(",")
+			if len(cf) != 3: 
+				sys.stderr.write("ignored line: {}\n".format(l))	
+				continue
+			team, method, key = cf
+			if method == "None":
+				api_tokens[team] = key.replace("\n","")
+			else:
+				api_tokens[team] = get_api_token(key, method)
 
 def log_it(fname, m):
 	now = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -68,7 +74,9 @@ def sleek():
 def hello():			
 	return "Hi there! :)"
 
+load_tokens()
+if len(api_tokens) == 0: raise RuntimeError
+sys.stderr.write(repr(api_tokens))
+
 if __name__ == "__main__": 
-	load_tokens()
-	print api_token
 	app.run()
