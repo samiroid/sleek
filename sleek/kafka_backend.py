@@ -250,21 +250,20 @@ class KafkaBackend(LocalBackend):
 		LocalBackend.__init__(self, cfg, create)
 
 	def save_answer(self, user_id, survey_id, answer):
-		r = LocalBackend.save_answer(self, user_id, survey_id, answer)			
+		ans_id = LocalBackend.save_answer(self, user_id, survey_id, answer)			
 		dt = datetime.strptime(answer["ts"] , '%Y-%m-%d %H:%M')
 		timestamp = (dt - datetime(1970, 1, 1)).total_seconds()	
-		del answer["ts"]
-		if r > 0:
-			payload = {
+		del answer["ts"]		
+		payload = {
 			"teamId": self.team_id,
 			"userId": user_id,
-			"ts": timestamp,
+			"timestamp": timestamp,
 			"surveyId": survey_id,
-			"responses": answer
-			}
-			print "[posting to kafka: {0}]".format(payload)
-			self.post_kafka(json.dumps(payload))
-		return r	
+			"responses": answer,
+			"answerId": ans_id
+		}
+		print "[posting to kafka: {0}]".format(payload)
+		self.post_kafka(json.dumps(payload))		
 
 	def post_kafka(self, payload):						
 		sent = self.kafka.send(self.kafka_topic, payload)		

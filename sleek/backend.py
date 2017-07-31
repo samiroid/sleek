@@ -6,14 +6,12 @@ from datetime import datetime
 import json
 import os
 import sqlite3
+import uuid
 
-# import pprint
-# from kafka import KafkaProducer
-
-# try:
-# 	from ipdb import set_trace
-# except ImportError:
-# 	from pdb import set_trace
+try:
+	from ipdb import set_trace
+except ImportError:
+	from pdb import set_trace
 
 class LocalBackend(object):
 	#user table columns
@@ -31,6 +29,11 @@ class LocalBackend(object):
 			cfg: dictionary with configurations
 		"""
 		self.DB_path = cfg["local_DB"]
+		dir_name = os.path.dirname(self.DB_path)
+
+		if not os.path.exists(dir_name):
+			os.makedirs(dir_name)		
+
 		if create:
 			self.__create_DB()
 
@@ -149,7 +152,7 @@ class LocalBackend(object):
 			self.__put("surveys", {"id":survey["id"],"survey":json.dumps(survey)})
 			db = sqlite3.connect(self.DB_path)
 			cursor = db.cursor()			
-			sql_fields = 'ID INTEGER PRIMARY KEY AUTOINCREMENT, ' + ' TEXT, '.join(fields) + ' TEXT' 
+			sql_fields = 'ID TEXT PRIMARY KEY, ' + ' TEXT, '.join(fields) + ' TEXT' 
 		 	create = ''' CREATE TABLE {}({}) '''.format(table_name, sql_fields)
 			#create table		
 			cursor.execute(create)	
@@ -194,9 +197,12 @@ class LocalBackend(object):
 		"""
 			row is a dictionary: {column: value}
 		"""
+		ans_id = uuid.uuid4().hex
 		answer["user_id"] = user_id		
+		answer["id"] = ans_id
 		survey_table = "survey_{}".format(survey_id)
-		return self.__put(survey_table, answer)
+		self.__put(survey_table, answer)
+		return ans_id
 
 	#################################################################
 	# REMINDER METHODS

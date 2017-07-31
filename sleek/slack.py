@@ -20,6 +20,7 @@ except ImportError:
 	from pdb import set_trace
 
 READ_WEBSOCKET_DELAY = 1 # 1 second delay between reading from firehose
+RECONNECT_WEBSOCKET_DELAY = 60 # 1 minute sleep if reading from firehose fails
 
 class Sleek4Slack(Sleek):
 	sleek_announce = ''' I am {}, the chat bot :robot_face: -- If we never met, you can start by typing `help` '''	
@@ -108,8 +109,15 @@ class Sleek4Slack(Sleek):
 		hat_bot = "<@{}>".format(self.slackers[self.bot_name]).lower() 		
 		print "[launched @{} > {} | interactive survey: {}]".format(self.bot_name, team_name, self.interactive)
 		while True:		
-			reply = None	
-			for output in self.slack_client.rtm_read():					
+			reply = None
+			try:
+				slack_data = self.slack_client.rtm_read()									
+			except Exception as e:
+				print "failed to read"
+				print e
+				time.sleep(RECONNECT_WEBSOCKET_DELAY)
+				continue
+			for output in slack_data:				
 				if verbose and output["type"] == "message": 
 					pprint.pprint(output)
 				if output["type"] != "message": continue								
@@ -124,7 +132,7 @@ class Sleek4Slack(Sleek):
 			   			thread_ts = ts				   	
 				except KeyError:
 					continue			
-				context = {"user_id":user, "ts":ts, "channel":channel, "thread_ts":thread_ts}
+				context = {"user_id":user, "ts":ts, "channel":channel, "thread_ts":thread_ts}				
 			   	#only react to ongoing survey threads 
 				if thread_ts in self.survey_threads:
 					if 'bot_id' in output:
@@ -164,7 +172,6 @@ class Sleek4Slack(Sleek):
 				print "[waiting for @{}...|{}]".format(self.bot_name, team_name)				
 				time.sleep(READ_WEBSOCKET_DELAY)
 
-	
 	def remind_user(self, user_id, survey_id, period):
 		post_slack(self.slack_client, user_id, out.REMIND_SURVEY.format(survey_id,period))				
 		
@@ -239,14 +246,15 @@ class Sleek4Slack(Sleek):
 						error = out.SURVEY_JOIN_FAIL.format(survey_id.upper())
 				except RuntimeError as e:			
 					error = out.SURVEY_JOIN_FAIL.format(survey_id.upper()) + " [err: {}]".format(str(e))		
-			
+			#success!
 			if len(error) == 0:	
 				post_slack(self.slack_client, channel, self.ack(), ts=thread_ts)				
-				post_slack(self.slack_client, channel, out.SURVEY_JOIN_OK.format(survey_id.upper()), ts=thread_ts)		
+				post_slack(self.slack_client, channel, out.SURVEY_JOIN_OK.format(survey_id.upper()), ts=thread_ts)	
 				if len(tokens)>2:
 					resp = self.cmd_reminder(tokens, context, post=False)
 					post_slack(self.slack_client, channel, resp, ts=thread_ts)		
 			else:
+				#oops
 				post_slack(self.slack_client, channel, self.oops(), ts=thread_ts)			
 				post_slack(self.slack_client, channel, error, ts=thread_ts)
 	
@@ -262,11 +270,12 @@ class Sleek4Slack(Sleek):
 			error = self.__is_valid_survey(user_id, survey_id)
 			if len(error) == 0: 
 				if not self.backend.leave_survey(user_id, survey_id):
-					error = out.SURVEY_LEAVE_FAIL.format(survey_id.upper())			
-			
+					error = out.SURVEY_LEAVE_FAIL.format(survey_id.upper())									
+			#remove reminder triggers			
+			self.__schedule_reminder(user_id, survey_id, None)			
 			if len(error) == 0:	
 				post_slack(self.slack_client, channel, self.ack(), ts=thread_ts)				
-				post_slack(self.slack_client, channel, out.SURVEY_LEAVE_OK.format(survey_id.upper()), ts=thread_ts)								
+				post_slack(self.slack_client, channel, out.SURVEY_LEAVE_OK.format(survey_id.upper()), ts=thread_ts)	
 			else:
 				post_slack(self.slack_client, channel, self.oops(), ts=thread_ts)			
 				post_slack(self.slack_client, channel, error, ts=thread_ts)
@@ -337,7 +346,7 @@ class Sleek4Slack(Sleek):
 						else:
 							#set new reminder trigger
 							self.__schedule_reminder(user_id, survey_id, reminder)					
-			#output
+			#success!
 			if len(error) == 0:				
 				#choose a return message
 				if am_schedule is not None and pm_schedule is not None:
@@ -374,8 +383,7 @@ class Sleek4Slack(Sleek):
 			if len(error) == 0: 					
 				#remove reminder schedule 
 				if not self.backend.set_reminder(user_id, survey_id, None):
-					error = out.REMINDER_FAIL.format(survey_id) + " [failed to update the DB]\n"
-		
+					error = out.REMINDER_FAIL.format(survey_id) + " [failed to update the DB]\n"		
 			if len(error) == 0:
 				#remove reminder triggers
 				self.__schedule_reminder(user_id, survey_id, None)			
@@ -489,7 +497,8 @@ class Sleek4Slack(Sleek):
 				post_slack(self.slack_client, channel, self.oops(), ts=thread_ts)
 				post_slack(self.slack_client, channel, out.ANSWERS_INVALID, ts=thread_ts)
 			else:
-				ts = datetime.now().strftime('%Y-%m-%d %H:%M')
+				response = self.__answers_2_indices(open_survey, response)
+				ts = datetime.now().strftime('%Y-%m-%d %H:%M')				
 				response["ts"]=ts
 				if not self.backend.save_answer(open_user, open_survey, response):			
 					post_slack(self.slack_client, channel, out.ANSWERS_SAVE_FAIL, ts=thread_ts)
@@ -541,7 +550,7 @@ class Sleek4Slack(Sleek):
 			if len(error) == 0:
 				#cache this response
 				self.survey_threads[thread_ts] = (open_user, open_survey, open_channel, response)		
-				attach = display.attach_answer(response, open_survey)		
+				attach = display.attach_answer(response, open_survey, cancel_button=False)		
 				post_slack(self.slack_client, channel, "", ts=thread_ts, attach=attach)
 				post_slack(self.slack_client, channel, out.ANSWERS_CONFIRM, ts=thread_ts)					
 			else:
@@ -563,6 +572,8 @@ class Sleek4Slack(Sleek):
 				post_slack(self.slack_client, channel, self.oops(), ts=thread_ts)
 				post_slack(self.slack_client, channel, out.ANSWERS_INVALID, ts=thread_ts)
 			else:
+				response = self.__answers_2_indices(open_survey, response)
+				#record timestamp
 				ts = datetime.now().strftime('%Y-%m-%d %H:%M')
 				response["ts"]=ts
 				if not self.backend.save_answer(open_user, open_survey, response):			
@@ -605,16 +616,14 @@ class Sleek4Slack(Sleek):
 						answer = int(answer)
 					except ValueError:
 						error = out.ANSWERS_INVALID
-					if q_index < 1 or \
-					   q_index > len(questions) or \
-					   answer < 1:
+					if q_index < 0 or \
+					   q_index > len(questions)-1 or \
+					   answer < 0:
 						error = out.ANSWERS_INVALID					
 				if len(error) == 0 :
 					question = questions[q_index-1]
 					q_id = question["q_id"]
-					choices = question["choices"]
-					#correct for 1-based index
-					answer-=1
+					choices = question["choices"]					
 					if answer not in range(len(choices)):
 						error = out.ANSWERS_BAD_CHOICE.format(q_id)
 					else:
@@ -629,7 +638,7 @@ class Sleek4Slack(Sleek):
 				#post the current answers
 				#if the survey is all filled ask to confirm
 				if len(response) == len(questions):
-					answer_attach = display.attach_answer(response, open_survey, ok_button=True, notes_button=True)		
+					answer_attach = display.attach_answer(response, open_survey, ok_button=True, notes_button=True)	
 					post_slack(self.slack_client, channel, "", ts=thread_ts, attach=answer_attach)
 					post_slack(self.slack_client, channel, out.ANSWERS_CONFIRM, ts=thread_ts)
 				elif len(response) >= len(questions) and "notes" in response:
@@ -686,4 +695,13 @@ class Sleek4Slack(Sleek):
 		except ValueError:
 			raise RuntimeError(out.INVALID_TIME.format(t))
 	
+	def __answers_2_indices(self, survey_id, responses):
+		new_response = {}
+		questions = self.current_surveys[survey_id]["questions"]
+		for q in questions:
+			q_id = q["q_id"]
+			ans = responses[q_id]
+			new_response[q_id] = q["choices"].index(ans)
+		return new_response
+
 	

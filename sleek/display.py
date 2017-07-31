@@ -82,7 +82,7 @@ def survey_list( user_surveys, other_surveys):
 	display = u"*Your Surveys*\n{}\n{}"
 	return display.format("\n".join(us),"\n".join(ot))
 
-def attach_answer(a,survey_id, ok_button=False, notes_button=False):
+def attach_answer(a,survey_id, cancel_button=True, ok_button=False, notes_button=False):
 	notes = None
 	if "notes" in a: notes = a["notes"]			
 	
@@ -98,11 +98,13 @@ def attach_answer(a,survey_id, ok_button=False, notes_button=False):
                     "short": True
                 })
 
-	actions = [{"name": "cancel",
-		        "text": "cancel",
-		        "type": "button",		        
-		        "value":"cancel", 
-		        "style":"danger"}]
+	actions = []
+	if cancel_button:
+		actions.append({"name": "cancel",
+			        	"text": "cancel",
+			        	"type": "button",		        
+			        	"value":"cancel", 
+			        	"style":"danger"})
 	if ok_button:
 		actions.append({"name": "ok",
 		        		"text": "ok",
@@ -143,16 +145,22 @@ def attach_answer(a,survey_id, ok_button=False, notes_button=False):
 	
 	return attach
 
-def attach_report(survey, data, notes):
+def attach_report(survey, data, notes):	
 
 	survey_id = survey["id"]
 	ret = u"*report _{}_*\n\n```{}```"
-
 	#survey answer tables have the columns: id, user_id, timestamp, answer_1, ... , answer_N, notes
 	#keeping only: ts, timestamp, answer_1, ... , answer_N
 	df_answers = pd.DataFrame(data).iloc[:,2:-1]		
 	df_answers.columns = ["ts"] + [q["q_id"] for q in survey["questions"]]		
 	df_answers['ts'] = pd.to_datetime(df_answers['ts']).dt.strftime("%Y-%m-%d %H:%M")
+	# set_trace()
+	for q in survey["questions"]:
+		q_id = q["q_id"]
+		choices = q["choices"]
+		answers = df_answers[q_id]
+		df_answers[q_id] = map(lambda x: choices[int(x)], answers)
+
 	df_answers.set_index('ts', inplace=True)			
 	report = "```{}```".format(repr(df_answers))
 	attach = [
@@ -180,6 +188,42 @@ def attach_report(survey, data, notes):
 	
 	return attach
 
+# def attach_report(survey, data, notes):
+
+# 	survey_id = survey["id"]
+# 	ret = u"*report _{}_*\n\n```{}```"
+
+# 	#survey answer tables have the columns: id, user_id, timestamp, answer_1, ... , answer_N, notes
+# 	#keeping only: ts, timestamp, answer_1, ... , answer_N
+# 	df_answers = pd.DataFrame(data).iloc[:,2:-1]		
+# 	df_answers.columns = ["ts"] + [q["q_id"] for q in survey["questions"]]		
+# 	df_answers['ts'] = pd.to_datetime(df_answers['ts']).dt.strftime("%Y-%m-%d %H:%M")
+# 	df_answers.set_index('ts', inplace=True)			
+# 	report = "```{}```".format(repr(df_answers))
+# 	attach = [
+#     			{ "fallback": "Survey Report",
+#         		  "color": "good",
+#         		  "pretext": u"Here is your report for survey _{}_".format(survey_id),            
+#         		  "title": "Responses",            
+#         	      "text": report,
+#         	      "mrkdwn_in": ["text","pretext","title"] },
+    	        
+# 			]
+# 	if len(notes) > 0:
+# 		df_notes = pd.DataFrame(notes)
+# 		df_notes.columns = ["ts","notes"]
+# 		df_notes['ts'] = pd.to_datetime(df_notes['ts']).dt.strftime("%Y-%m-%d %H:%M")
+# 		df_notes.set_index('ts', inplace=True)			
+# 		notez = "```{}```".format(repr(df_notes))
+# 		note_attach = { "fallback": "Survey Notes",
+# 		        		  "color": "warning",		        		  
+# 		        		  "title": "Notes",            
+# 		        	      "text": notez,      
+# 		        	      "mrkdwn_in": ["text","pretext","title"]
+# 		 				}
+# 		attach.append(note_attach)
+	
+# 	return attach
 
 def attach_survey(survey):
 	attaches = []	
@@ -192,10 +236,10 @@ def attach_survey(survey):
 		actions = []
 		for e,c in enumerate(q["choices"]):
 			actions.append({
-		                    "name": q_num+1,
+		                    "name": q_num,
 		                    "text": u"{}".format(c),
 		                    "type": "button",
-		                    "value":e+1
+		                    "value":e
 			                })			
 
 		x = { "fallback": "Survey",
