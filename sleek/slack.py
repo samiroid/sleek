@@ -625,13 +625,14 @@ class Sleek4Slack(Sleek):
 					   answer < 0:
 						error = out.ANSWERS_INVALID					
 				if len(error) == 0 :
-					question = questions[q_index-1]
+					question = questions[q_index]
 					q_id = question["q_id"]
 					choices = question["choices"]					
 					if answer not in range(len(choices)):
 						error = out.ANSWERS_BAD_CHOICE.format(q_id)
 					else:
-						response[q_id] = choices[answer]												
+						response[q_id] = choices[answer]				
+
 			if len(error) == 0:
 				#cache this response
 				self.survey_threads[thread_ts] = (open_user, open_survey, open_channel, response)		
@@ -700,12 +701,16 @@ class Sleek4Slack(Sleek):
 			raise RuntimeError(out.INVALID_TIME.format(t))
 	
 	def __answers_2_indices(self, survey_id, responses):
-		new_response = {}
+		new_responses = {}
 		questions = self.current_surveys[survey_id]["questions"]
 		for q in questions:
 			q_id = q["q_id"]
 			ans = responses[q_id]
-			new_response[q_id] = q["choices"].index(ans)
-		return new_response
+			new_responses[q_id] = q["choices"].index(ans)
+		try:
+			new_responses["notes"] = responses["notes"]
+		except KeyError:
+			pass
+		return new_responses
 
 	
