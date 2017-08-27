@@ -1,10 +1,10 @@
 from random import randint
 
-class Sleek(object): 
+class ChatBot(object): 
 	
 	default_cfg={
-				"announce": "Hello I am a Sleek chatbot but I can't do much yet...",
-				"ack": ["ok","got it!","sure","no problem",":+1:"],
+				"announce": "Hello I am a chatbot but I can't do much yet...",
+				"ack": ["ok","got it!","sure","no problem"],
 				"greet": ["hi","yo","hello","hey"],
 				"help": "We all need a little help sometimes :)",	
 				"nack": ["sorry, I didn't get that", "I don't understand that command","!?"],
@@ -22,13 +22,13 @@ class Sleek(object):
 		self.__oops = None
 
 		if cfg is None:			
-			self.__load_cfg(Sleek.default_cfg)
+			self.__load_cfg(ChatBot.default_cfg)
 		else:			
 			self.__load_cfg(cfg)
 
 	def __load_cfg(self, cfg):
 		"""
-			Load sleek configuration. Any 
+			Load ChatBot configuration. Any 
 			cfg: dictionary with the following fields: greetings, acks, nacks, help
 		"""
 
@@ -36,32 +36,32 @@ class Sleek(object):
 		try:
 			self.__greets = cfg["greet"]
 		except KeyError:
-			self.__greets = Sleek.default_cfg["greet"]
+			self.__greets = ChatBot.default_cfg["greet"]
 
 		try:
 			self.__acks = cfg["ack"]
 		except KeyError:
-			self.__acks = Sleek.default_cfg["ack"]
+			self.__acks = ChatBot.default_cfg["ack"]
 		
 		try:
 			self.__nacks = cfg["nack"]
 		except KeyError:
-			self.__nacks = Sleek.default_cfg["nack"]
+			self.__nacks = ChatBot.default_cfg["nack"]
 
 		try:
 			self.__help = cfg["help"]
 		except KeyError:
-			self.__help = Sleek.default_cfg["help"]
+			self.__help = ChatBot.default_cfg["help"]
 
 		try:
 			self.__announce = cfg["announce"]
 		except KeyError:
-			self.__announce = Sleek.default_cfg["announce"]
+			self.__announce = ChatBot.default_cfg["announce"]
 
 		try:
 			self.__oops = cfg["oops"]
 		except KeyError:
-			self.__oops = Sleek.default_cfg["oops"]
+			self.__oops = ChatBot.default_cfg["oops"]
 
 	def __get_rand(self, obj):
 		"""
@@ -95,4 +95,4 @@ class Sleek(object):
 			return [self.help()]
 		else:
 			return [self.nack()]
-	
+			

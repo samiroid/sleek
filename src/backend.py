@@ -13,7 +13,7 @@ try:
 except ImportError:
 	from pdb import set_trace
 
-class LocalBackend(object):
+class Backend(object):
 	#user table columns
 	USER_ID = 0
 	USER_ACTIVE = 1
@@ -21,10 +21,10 @@ class LocalBackend(object):
 	#user_surveys table columns
 	SURVEYS_USER_ID = 0
 	SURVEYS_ID = 1
-	SURVEYS_AM_CHECK = 2
-	SURVEYS_PM_CHECK = 3
+	SURVEYS_AM_REMINDER = 2
+	SURVEYS_PM_REMINDER = 3
 
-	def __init__(self, cfg, create=False):
+	def __init__(self, cfg, init=False):
 		"""
 			cfg: dictionary with configurations
 		"""
@@ -34,7 +34,7 @@ class LocalBackend(object):
 		if not os.path.exists(dir_name):
 			os.makedirs(dir_name)		
 
-		if create:
+		if init:
 			self.__create_DB()
 
 	#################################################################
@@ -49,7 +49,7 @@ class LocalBackend(object):
 											  active INTEGER DEFAULT 1) '''
 		
 		USER_SURVEYS = ''' CREATE TABLE user_surveys(user_id TEXT, survey_id TEXT, 
-											         am_check TEXT, pm_check TEXT, 
+											         am_reminder TEXT, pm_reminder TEXT, 
 											         PRIMARY KEY(user_id, survey_id))  '''
 
 		SURVEYS = ''' CREATE TABLE surveys(id TEXT PRIMARY KEY, survey TEXT)  '''
@@ -208,19 +208,27 @@ class LocalBackend(object):
 	# REMINDER METHODS
 	#################################################################
 
-	def get_reminders(self):
-		sql = '''SELECT * FROM user_surveys'''
-		return  self.__get(sql)
+	# def get_reminders(self):
+	# 	sql = '''SELECT * FROM user_surveys'''
+	# 	return  self.__get(sql)
 
-	def set_reminder(self, user_id, survey_id, schedule):
+	def get_reminders(self, user_id=None):
+		if user_id is None:
+			sql = ''' SELECT * FROM user_surveys'''
+			return self.__get(sql)
+		else:
+			sql = ''' SELECT survey_id, am_reminder, pm_reminder FROM user_surveys WHERE user_id=?'''
+			return self.__get(sql,(user_id,))
+
+	def save_reminder(self, user_id, survey_id, schedule):
 		if schedule is None:
-			sql = '''UPDATE user_surveys SET am_check=NULL, pm_check=NULL WHERE user_id=? AND survey_id=?'''
+			sql = '''UPDATE user_surveys SET am_reminder=NULL, pm_reminder=NULL WHERE user_id=? AND survey_id=?'''
 			params = (user_id, survey_id,)
 		elif "am" in schedule.lower():
-			sql = '''UPDATE user_surveys SET am_check=? WHERE user_id=? AND survey_id=?'''
+			sql = '''UPDATE user_surveys SET am_reminder=? WHERE user_id=? AND survey_id=?'''
 			params = (schedule, user_id, survey_id,)
 		elif "pm" in schedule.lower():
-			sql = '''UPDATE user_surveys SET pm_check=? WHERE user_id=? AND survey_id=?'''
+			sql = '''UPDATE user_surveys SET pm_reminder=? WHERE user_id=? AND survey_id=?'''
 			params = (schedule, user_id, survey_id,)
 		else:
 			raise NotImplementedError
@@ -244,36 +252,6 @@ class LocalBackend(object):
 		sql = '''SELECT ts, notes FROM {} WHERE user_id=? AND notes IS NOT NULL order by ts DESC'''.format(survey_table)
 		return self.__get(sql,(user_id,))
 
-# class KafkaBackend(LocalBackend):
-# 	def __init__(self, cfg, create=False):		
-# 		pprint.pprint(cfg)		
-# 		self.kafka_topic = cfg["kafka_topic"]
-# 		self.team_id = cfg["team_id"]
-# 		kafka_servers = cfg["kafka_servers"].split(",")
-# 		self.kafka = KafkaProducer(bootstrap_servers=kafka_servers)
-# 		LocalBackend.__init__(self, cfg, create)
-
-# 	def save_answer(self, user_id, survey_id, answer):
-# 		r = LocalBackend.save_answer(self, user_id, survey_id, answer)			
-# 		dt = datetime.strptime(answer["ts"] , '%Y-%m-%d %H:%M')
-# 		timestamp = (dt - datetime(1970, 1, 1)).total_seconds()	
-# 		del answer["ts"]
-# 		if r > 0:
-# 			payload = {
-# 			"teamId": self.team_id,
-# 			"userId": user_id,
-# 			"ts": timestamp,
-# 			"surveyId": survey_id,
-# 			"responses": answer
-# 			}
-# 			print "[posting to kafka: {0}]".format(payload)
-# 			self.post_kafka(json.dumps(payload))
-# 		return r	
-
-# 	def post_kafka(self, payload):						
-# 		sent = self.kafka.send(self.kafka_topic, payload)		
-# 		self.kafka.flush()
-# 		print sent
 
 		
 

@@ -1,12 +1,17 @@
-from flask import Flask, request
 from datetime import datetime
+from flask import Flask, request
 import json
 import pprint
 from slackclient import SlackClient
-from pdb import set_trace
 import quinn.loqsmith as loqsmith
 import os
 import sys
+
+try:
+	from ipdb import set_trace
+except ImportError:
+	from pdb import set_trace
+
 
 LOG = "/tmp/foo.log"
 api_tokens = {}
