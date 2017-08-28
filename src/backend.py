@@ -179,7 +179,7 @@ class Backend(object):
 		try:		
 			return self.__put("user_surveys", row) > 0
 		except sqlite3.IntegrityError:				
-			raise RuntimeError("user {} already joined survey {}".format(user_id, survey_id))
+			raise RuntimeError("user already joined survey {}".format(survey_id))
 	
 	def list_surveys(self, user_id=None):	
 		if user_id is None:
@@ -212,13 +212,13 @@ class Backend(object):
 	# 	sql = '''SELECT * FROM user_surveys'''
 	# 	return  self.__get(sql)
 
-	def get_reminders(self, user_id=None):
-		if user_id is None:
-			sql = ''' SELECT * FROM user_surveys'''
-			return self.__get(sql)
-		else:
-			sql = ''' SELECT survey_id, am_reminder, pm_reminder FROM user_surveys WHERE user_id=?'''
-			return self.__get(sql,(user_id,))
+	# def get_reminders(self, user_id=None):
+	# 	if user_id is None:
+	# 		sql = ''' SELECT * FROM user_surveys'''
+	# 		return self.__get(sql)
+	# 	else:
+	# 		sql = ''' SELECT survey_id, am_reminder, pm_reminder FROM user_surveys WHERE user_id=?'''
+	# 		return self.__get(sql,(user_id,))
 
 	def save_reminder(self, user_id, survey_id, schedule):
 		if schedule is None:
@@ -241,14 +241,14 @@ class Backend(object):
 	def get_report(self, user_id, survey_id):
 		survey_table = "survey_{}".format(survey_id)
 		if not self.__table_exists(survey_table):
-			raise RuntimeError("survey does not exist")
+			raise RuntimeError("survey {} does not exist".format(survey_id))
 		sql = '''SELECT * FROM {} WHERE user_id=? order by ts DESC'''.format(survey_table)
 		return self.__get(sql,(user_id,))
 
 	def get_notes(self, user_id, survey_id):
 		survey_table = "survey_{}".format(survey_id)
 		if not self.__table_exists(survey_table):
-			raise RuntimeError("survey does not exist")
+			raise RuntimeError("survey {} does not exist".format(survey_id))
 		sql = '''SELECT ts, notes FROM {} WHERE user_id=? AND notes IS NOT NULL order by ts DESC'''.format(survey_table)
 		return self.__get(sql,(user_id,))
 

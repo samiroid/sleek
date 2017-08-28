@@ -3,7 +3,7 @@ import pprint
 from slackclient import SlackClient
 from string import ascii_letters
 import time
-
+import out
 #sleek
 from sleek import Sleek 
 
@@ -39,12 +39,11 @@ class Sleek4Slack():
 	def connect(self, api_token, bot_name):
 		self.bot_name = bot_name
 		self.slack_client = SlackClient(api_token)				
-		self.slackers = self.list_slackers()
-		#self.id2user  = {uid:uname for uname, uid in self.slackers.items()}
+		slackers = self.list_slackers()		
+		self.sleek.load_users(slackers)
+		self.at_bot = "<@{}>".format(slackers[bot_name]).lower() 		
 		#open direct messages		
 		self.direct_messages = self.list_dms() 			
-		#TODO: inform sleek
-		self.sleek.load_users(self.slackers)
 
 	def greet_channel(self, channel):
 		self.post_slack(channel, self.greet())
@@ -59,7 +58,7 @@ class Sleek4Slack():
 			raise RuntimeError("Could not connect to RTM API :(")
 		
 		team_name = self.get_team_name()				
-		at_bot = "<@{}>".format(self.slackers[self.bot_name]).lower() 		
+		
 		print "[launched @{} > {} | interactive survey: {}]".format(self.bot_name, 
 																	team_name,
 																	self.interactive)
@@ -95,14 +94,15 @@ class Sleek4Slack():
 				context = {"user_id":user, "ts":ts, "channel":channel, "thread_ts":thread_ts}				
 			 
 				#only react to messages directed at the bot						   	
-				if at_bot in text or channel in self.direct_messages and 'bot_id' not in output:				
+				if self.at_bot in text or channel in self.direct_messages and 'bot_id' not in output:				
 					#remove bot mention
-			   		text = text.replace(at_bot,"").strip()			   					   		
+			   		text = text.replace(self.at_bot,"").strip()			   					   		
 					#if user is not talking on a direct message with sleek
 					#open a new one, and reply there
-					if channel not in self.direct_messages:												
+					if channel not in self.direct_messages:
 						new_context = self.greet_user(text, context)						
 						context = new_context
+						channel = new_context["channel"]
 			   		if dbg:
 			   			#debug mode lets unhandled exceptions explode
 			   			reply = self.sleek.read(text, context)			   			
@@ -111,6 +111,7 @@ class Sleek4Slack():
 			   				reply = self.sleek.read(text, context)
 		   				except Exception as e:	   					
 		   					reply = "```[FATAL ERROR: {}]```".format(e)
+		   			#post replies
 		   			if type(reply) is list:
 		   				for r in reply: self.post_slack(channel, r)
 	   				else: self.post_slack(channel, reply)
@@ -118,6 +119,23 @@ class Sleek4Slack():
 				print "[waiting for @{}...|{}]".format(self.bot_name, team_name)				
 				time.sleep(READ_WEBSOCKET_DELAY)
 
+	def greet_user(self, text, context):
+		#open new DM
+		user_id = context["user_id"]		
+		channel = context["channel"]
+		new_dm = self.open_dm(user_id) 
+		self.direct_messages[new_dm] = user_id					
+		try:
+			username = self.sleek.users[user_id].username
+		except KeyError:
+			username=""
+		#greet user and move conversation to a private chat
+		self.post_slack(channel, out.GREET_USER.format(self.sleek.greet(), username))		
+		#say hi on the new DM		
+		self.post_slack(new_dm, "> *you said*: _{}_\n\n".format(text))
+		context["channel"] = new_dm
+
+		return context
 	
 	def get_team_name(self):
 		resp = self.slack_client.api_call("team.info") 

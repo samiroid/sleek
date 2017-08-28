@@ -33,9 +33,8 @@ test_attach = [
 
 
 # methods to format the replies
-def answer(a):
-	notes = None
-	if "notes" in a: notes = a["notes"]			
+def answer(a, notes=None):	
+	
 	ans = u"\n".join(["*{}*: {}".format(f,v) for f,v in a.items() if f!="notes"])
 	if notes is not None:
 		ret = u"Your answers\n>>>{}\n_notes_:```{}```".format(ans,notes)
@@ -43,7 +42,7 @@ def answer(a):
 		ret = u"Your answers\n>>>{}".format(ans)
 	return ret
 
-def notes( survey_id, notes):
+def notes(survey_id, notes):
 	ret = u"*notes _{}_*\n\n```{}```"		
 	df = pd.DataFrame(notes)
 	df.columns = ["ts","notes"]
@@ -51,17 +50,34 @@ def notes( survey_id, notes):
 	df.set_index('ts', inplace=True)			
 	return ret.format(survey_id.upper(), repr(df))	
 
+# def report(survey, data):
+# 	survey_id = survey["id"]
+# 	ret = u"*report _{}_*\n\n```{}```"
+# 	#survey = current_surveys[survey_id]["questions"]
+# 	#survey answer tables have the columns: id, user_id, timestamp, answer_1, ... , answer_N, notes
+# 	#keeping only: ts, timestamp, answer_1, ... , answer_N
+# 	df = pd.DataFrame(data).iloc[:,2:-1]		
+# 	df.columns = ["ts"] + [q["q_id"] for q in survey["questions"]]		
+# 	df['ts'] = pd.to_datetime(df['ts']).dt.strftime("%Y-%m-%d %H:%M")
+# 	df.set_index('ts', inplace=True)			
+# 	return ret.format(survey_id.upper(), repr(df))	
+
 def report(survey, data):
 	survey_id = survey["id"]
-	ret = u"*report _{}_*\n\n```{}```"
-	#survey = current_surveys[survey_id]["questions"]
+	ret = u"*report _{}_*\n\n```{}```"	
 	#survey answer tables have the columns: id, user_id, timestamp, answer_1, ... , answer_N, notes
-	#keeping only: ts, timestamp, answer_1, ... , answer_N
-	df = pd.DataFrame(data).iloc[:,2:-1]		
-	df.columns = ["ts"] + [q["q_id"] for q in survey["questions"]]		
-	df['ts'] = pd.to_datetime(df['ts']).dt.strftime("%Y-%m-%d %H:%M")
-	df.set_index('ts', inplace=True)			
-	return ret.format(survey_id.upper(), repr(df))	
+	#keeping only: ts, answer_1, ... , answer_N
+	df_answers = pd.DataFrame(data).iloc[:,2:-1]		
+	df_answers.columns = ["ts"] + [q["q_id"] for q in survey["questions"]]		
+	df_answers['ts'] = pd.to_datetime(df_answers['ts']).dt.strftime("%Y-%m-%d %H:%M")
+	#convert numeric answers back to their text values
+	for q in survey["questions"]:
+		q_id = q["q_id"]
+		choices = q["choices"]
+		answers = df_answers[q_id]
+		df_answers[q_id] = map(lambda x: choices[int(x)], answers)
+	df_answers.set_index('ts', inplace=True)	
+	return ret.format(survey_id.upper(), repr(df_answers))	
 
 def survey(survey):
 	ret = u"*===== _{}_ survey =====* \n".format(survey["id"].upper())
