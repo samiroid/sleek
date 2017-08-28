@@ -1,0 +1,4 @@
+#team name, method, key
+samiroid,env,SLEEK_DEV_TOKEN
+sleek4,env,SLEEK_BETA_TOKEN
+qntfy,loqsmith,134

@@ -17,37 +17,31 @@ RECONNECT_WEBSOCKET_DELAY = 60 # 1 minute sleep if reading from firehose fails
 
 class Sleek4Slack():
 	
-	def __init__(self, confs, init_db=False):				
-		if confs["survey_mode"]	== "interactive":
-			self.interactive=True
-		else:
-			self.interactive=False		
-		#sleek
-		self.sleek = Sleek(confs, init_db=init_db)
-		#survey_threads > {thread_id:(user_id, survey_id, response)}
-		self.survey_threads = {}
+	def __init__(self, confs):				
+		self.interactive = confs["survey_mode"] == "interactive"				
+		self.bot_name = confs["bot_name"]
 		#these variables will be filled by the connect()
-		self.slack_client = None		
-		self.bot_name = None
-		self.slackers = None 
+		self.slack_client = None				
 		self.direct_messages = None
+		#sleek
+		self.sleek = Sleek(confs, self.remind_user)
 	
 	#################################################################
 	# CORE METHODS
 	#################################################################	
 
-	def connect(self, api_token, bot_name):
-		self.bot_name = bot_name
+	def connect(self, api_token):		
 		self.slack_client = SlackClient(api_token)				
 		slackers = self.list_slackers()		
 		self.sleek.load_users(slackers)
-		self.at_bot = "<@{}>".format(slackers[bot_name]).lower() 		
+		self.at_bot = "<@{}>".format(slackers[self.bot_name]).lower() 		
 		#open direct messages		
 		self.direct_messages = self.list_dms() 			
 
 	def greet_channel(self, channel):
-		self.post_slack(channel, self.greet())
-		self.post_slack(channel, self.announce("*@{}*".format(self.bot_name)))
+		self.post_slack(channel, self.sleek.greet())
+		bot = "*@{}*".format(self.bot_name)
+		self.post_slack(channel, self.sleek.announce(bot))
 
 	def listen(self, verbose=False, dbg=False):
 		"""
@@ -91,16 +85,19 @@ class Sleek4Slack():
 			   			thread_ts = ts				   	
 				except KeyError:
 					continue			
-				context = {"user_id":user, "ts":ts, "channel":channel, "thread_ts":thread_ts}				
+				context = {"user_id":user, "ts":ts, 
+				           "channel":channel, 
+						   "thread_ts":thread_ts}				
 			 
 				#only react to messages directed at the bot						   	
-				if self.at_bot in text or channel in self.direct_messages and 'bot_id' not in output:				
+				if self.at_bot in text or channel in self.direct_messages \
+					and 'bot_id' not in output:				
 					#remove bot mention
 			   		text = text.replace(self.at_bot,"").strip()			   					   		
 					#if user is not talking on a direct message with sleek
 					#open a new one, and reply there
 					if channel not in self.direct_messages:
-						new_context = self.greet_user(text, context)						
+						new_context = self.greet_user(text, context)					
 						context = new_context
 						channel = new_context["channel"]
 			   		if dbg:
@@ -131,11 +128,16 @@ class Sleek4Slack():
 			username=""
 		#greet user and move conversation to a private chat
 		self.post_slack(channel, out.GREET_USER.format(self.sleek.greet(), username))		
-		#say hi on the new DM		
+		#say hi on the new DM	
+		hello = "Hello! I prefer talking in private :slightly_smiling_face:"	
+		self.post_slack(new_dm, hello)
 		self.post_slack(new_dm, "> *you said*: _{}_\n\n".format(text))
 		context["channel"] = new_dm
 
 		return context
+	
+	def remind_user(self, user_id, survey_id, period):
+		self.post_slack(user_id, out.REMIND_SURVEY.format(survey_id,period))				
 	
 	def get_team_name(self):
 		resp = self.slack_client.api_call("team.info") 

@@ -10,13 +10,13 @@ import pprint
 
 
 class KafkaBackend(Backend):
-	def __init__(self, cfg, create=False):		
-		pprint.pprint(cfg)		
-		self.kafka_topic = cfg["kafka_topic"]
-		self.team_id = cfg["team_id"]
-		kafka_servers = cfg["kafka_servers"].split(",")
+	def __init__(self, confs, init=False):		
+		pprint.pprint(confs)		
+		self.kafka_topic = confs["kafka_topic"]
+		self.team_id = confs["team_id"]
+		kafka_servers = confs["kafka_servers"].split(",")
 		self.kafka = KafkaProducer(bootstrap_servers=kafka_servers)
-		Backend.__init__(self, cfg, create)
+		Backend.__init__(self, confs, init)
 
 	def save_answer(self, user_id, survey_id, answer):
 		ans_id = Backend.save_answer(self, user_id, survey_id, answer)			

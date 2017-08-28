@@ -24,17 +24,16 @@ class Backend(object):
 	SURVEYS_AM_REMINDER = 2
 	SURVEYS_PM_REMINDER = 3
 
-	def __init__(self, cfg, init=False):
+	def __init__(self, confs, init=False):
 		"""
-			cfg: dictionary with configurations
+			confs: dictionary with configurations
 		"""
-		self.DB_path = cfg["local_DB"]
-		dir_name = os.path.dirname(self.DB_path)
-
-		if not os.path.exists(dir_name):
-			os.makedirs(dir_name)		
-
+		self.DB_path = confs["local_DB"]				
+		
 		if init:
+			dir_name = os.path.dirname(self.DB_path)
+			if not os.path.exists(dir_name):
+				os.makedirs(dir_name)		
 			self.__create_DB()
 
 	#################################################################
@@ -252,6 +251,36 @@ class Backend(object):
 		sql = '''SELECT ts, notes FROM {} WHERE user_id=? AND notes IS NOT NULL order by ts DESC'''.format(survey_table)
 		return self.__get(sql,(user_id,))
 
+
+	def load_surveys(self, surveys_path):
+		"""
+			Loads surveys in batch mode
+			surveys_path: path to folder containing surveys in json format
+		"""
+		print "[loading surveys @ {}]".format(surveys_path)
+		ignored = []
+		for fname in os.listdir(surveys_path):	
+			path = surveys_path+fname
+			if os.path.splitext(path)[1]!=".json":
+				ignored.append(fname)			
+				continue	
+			try:		
+				with open(path, 'r') as f:					
+					try:
+						survey = json.load(f)				
+					except ValueError:
+						print "invalid json @{}".format(fname)
+						continue
+					try:
+						self.create_survey(survey)		
+						print "\t>" + fname	
+					except RuntimeError as e:
+						print e
+
+			except IOError:
+				ignored.append(path)	
+		if len(ignored) > 0:
+			print "[ignored the files: {}]".format(repr(ignored))
 
 		
 
