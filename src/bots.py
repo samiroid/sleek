@@ -3,12 +3,14 @@ from random import randint
 class ChatBot(object): 
 	
 	default_cfg={
-				"announce": "Hello I am a chatbot but I can't do much yet...",
-				"ack": ["ok","got it!","sure","no problem"],
-				"greet": ["hi","yo","hello","hey"],
-				"help": "We all need a little help sometimes :)",	
-				"nack": ["sorry, I didn't get that", "I don't understand that command","!?"],
-				"oops": ["oops", "oh oh", "ergh"]
+				"announce": u"Hello I am a chatbot but I can't do much yet...",
+				"ack": [u"ok",u"got it!",u"sure",u"no problem"],
+				"greet": [u"hi",u"yo",u"hello",u"hey"],
+				"help": u"We all need a little help sometimes :)",	
+				"nack": [u"sorry, I didn't get that", 
+						 u"I don't understand that command",
+						 u"!?"],
+				"oops": [u"oops", u"oh oh", u"ergh"]
 				}
 
 	

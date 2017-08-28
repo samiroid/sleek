@@ -5,7 +5,7 @@ from string import ascii_letters
 import time
 import out
 #sleek
-from sleek import Sleek 
+from sleek import Sleek, Msg 
 
 try:	
 	from ipdb import set_trace
@@ -109,9 +109,10 @@ class Sleek4Slack():
 		   				except Exception as e:	   					
 		   					reply = "```[FATAL ERROR: {}]```".format(e)
 		   			#post replies
-		   			if type(reply) is list:
-		   				for r in reply: self.post_slack(channel, r)
-	   				else: self.post_slack(channel, reply)
+		   			assert type(reply) is list		   			
+	   				for r in reply:
+	   					self.post_slack(channel, str(r))
+	   				
 
 				print "[waiting for @{}...|{}]".format(self.bot_name, team_name)				
 				time.sleep(READ_WEBSOCKET_DELAY)
