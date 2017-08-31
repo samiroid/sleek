@@ -1,49 +1,47 @@
 from datetime import datetime
 from flask import Flask, request
 import json
-import pprint
-from slackclient import SlackClient
-import quinn.loqsmith as loqsmith
 import os
+import pprint
+from pdb import set_trace
+import quinn.loqsmith as loqsmith
+from slackclient import SlackClient
 import sys
 
-try:
-	from ipdb import set_trace
-except ImportError:
-	from pdb import set_trace
-
-
 LOG = "/tmp/foo.log"
+confs = "pongconf.txt"
 api_tokens = {}
 
 def get_api_token(key, method="env"):
 	if method == "env":
-		return os.getenv(key)
-	elif method == "loqsmith":
-		tok = loqsmith.get_token(key)	
-		return tok.oauth_token.access_token
+		return os.getenv(key)	
 	else:
 		raise NotImplementedError, "method {} unknwown".format(method)
 
 def load_tokens():
-	with open("pongconf.txt") as f:
+	with open(confs) as f:
 		f.next()
-		for l in f:			
+		for l in f:		
+			if len(l) == 0: continue
 			cf = l.split(",")
 			if len(cf) != 3: 
 				sys.stderr.write("ignored line: {}\n".format(l))	
 				continue
 			team, method, key = cf
+			key = key.replace("\n","")
 			if method == "None":
-				api_tokens[team] = key.replace("\n","")
+				api_tokens[team] = key
 			else:
-				api_tokens[team] = get_api_token(key, method)
+				token = get_api_token(key, method)
+				if token is not None:
+					api_tokens[team] = token
+				else:
+					sys.stderr.write("could not find token with key: {}\n".format(key))
 
 def log_it(fname, m):
 	now = datetime.now().strftime("%Y-%m-%d %H:%M")
 	with open(fname,"a") as f:
 		f.write("[{}]\t{}\n".format(now, m))
-
 
 app = Flask(__name__) 
 @app.route("/sleek",methods=['GET', 'POST'])
@@ -51,26 +49,27 @@ def sleek():
 	if request.method == 'POST':			
 		payload = json.loads(request.form['payload'])		
 		pprint.pprint(payload)
-		bot_user = payload["original_message"]["user"]
-		thread_ts = payload["original_message"]["thread_ts"]
+		bot = payload["original_message"]["user"]
+		slack_user = payload["callback_id"]
+		thread_ts = payload["original_message"]["ts"]
 		action = payload['actions'][0]		
 		question = action["name"]
 		ans      = action["value"] 		
-		txt = question + " " + ans		
+		txt = question + " " + ans				
 		key = payload["team"]["domain"]
 		print "key: {}".format(key)
 		slacker = SlackClient(api_tokens[key])
 		attach = []
-		attach.append({ "fallback": "notes",
-        		 		"text": txt
+		attach.append({ "fallback": "pong",
+        		 		"text": txt,
+        		 		"author_name": slack_user,        		 		
 		  				})
-		resp = slacker.api_call("chat.postMessage",
-	  					 channel=bot_user,
-	  					 as_user=True,
-	  					 thread_ts=thread_ts,	  					 
+		slacker.api_call("chat.postMessage",
+	  					 channel=bot,
+	  					 as_user=True,	  	
 	  					 text="pong",
-	  					 attachments=attach)				
-
+	  					 attachments=attach,
+	  					 thread_ts=thread_ts)
 		return ""
 	else:
 		return "got it"

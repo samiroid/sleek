@@ -5,5 +5,5 @@ if (($INIT == 1 )); then
 	echo "INITING BACKEND"
 	python sleek@slack.py -cfg $CONFIG -init -surveys DATA/surveys/
 else
-	python sleek@slack.py -cfg $CONFIG -connect $API_TOKEN_ID -dbg
+	python sleek@slack.py -cfg $CONFIG -api_token_id $API_TOKEN_ID -connect -dbg 
 fi

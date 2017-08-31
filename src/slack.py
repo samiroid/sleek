@@ -3,10 +3,11 @@ import pprint
 from slackclient import SlackClient
 from string import ascii_letters
 import time
+import traceback
 import out
 #sleek
-from sleek import Sleek, Msg 
-
+from sleek import Sleek, SleekMsg 
+import slack_formater as fancier
 try:	
 	from ipdb import set_trace
 except ImportError:
@@ -15,33 +16,36 @@ except ImportError:
 READ_WEBSOCKET_DELAY = 1 # 1 second delay between reading from firehose
 RECONNECT_WEBSOCKET_DELAY = 60 # 1 minute sleep if reading from firehose fails
 
-class Sleek4Slack():
-	
-	def __init__(self, confs):				
+class Sleek4Slack():	
+	def __init__(self, confs, fancy_msgs=False):				
 		self.interactive = confs["survey_mode"] == "interactive"				
 		self.bot_name = confs["bot_name"]
+		#if interactive always use fancy messages
+		self.fancy_msgs = True if self.interactive else fancy_msgs
 		#these variables will be filled by the connect()
 		self.slack_client = None				
-		self.direct_messages = None
+		self.DMs = None
+		self.user2DM = None
 		#sleek
 		self.sleek = Sleek(confs, self.remind_user)
-	
+		self.open_responses = {}	
 	#################################################################
 	# CORE METHODS
 	#################################################################	
-
 	def connect(self, api_token):		
 		self.slack_client = SlackClient(api_token)				
 		slackers = self.list_slackers()		
 		self.sleek.load_users(slackers)
 		self.at_bot = "<@{}>".format(slackers[self.bot_name]).lower() 		
 		#open direct messages		
-		self.direct_messages = self.list_dms() 			
+		self.DMs = self.list_dms() 			
+		#inverse lookup for DMs
+		self.user2DM = {v: k for k, v in self.DMs.iteritems()}
 
 	def greet_channel(self, channel):
-		self.post_slack(channel, self.sleek.greet())
+		self.postMessage(channel, self.sleek.greet())
 		bot = "*@{}*".format(self.bot_name)
-		self.post_slack(channel, self.sleek.announce(bot))
+		self.postMessage(channel, self.sleek.announce(bot))
 
 	def listen(self, verbose=False, dbg=False):
 		"""
@@ -49,97 +53,202 @@ class Sleek4Slack():
 			dbg     == True, allow unhandled exceptions
 		"""
 		if not self.slack_client.rtm_connect():					
-			raise RuntimeError("Could not connect to RTM API :(")
-		
+			raise RuntimeError("Could not connect to RTM API :(")		
 		team_name = self.get_team_name()				
-		
-		print "[launched @{} > {} | interactive survey: {}]".format(self.bot_name, 
-																	team_name,
-																	self.interactive)
-		while True:		
-			reply = None
+		status = "[launched {}@{} | interactive: {} | fancy: {}]"
+		print status.format(self.bot_name, team_name, 
+							self.interactive, self.fancy_msgs)
+		while True:					
 			try:
 				slack_data = self.slack_client.rtm_read()
 			except Exception as e:
 				print "failed to read: {}".format(e)				
 				time.sleep(RECONNECT_WEBSOCKET_DELAY)
-				#try to reconnect
+				print "[reconnecting to Slack]"				
 				if not self.slack_client.rtm_connect():					
 					raise RuntimeError("Could not connect to RTM API :(")
 				continue
-			for output in slack_data:				
-				try:
-					msg_type = output["type"]
-					if msg_type != "message": continue					
+			for data in slack_data:				
+				try:					
+					if data["type"] != "message": continue					
 				except KeyError:
 					continue				
-				if verbose: pprint.pprint(output)
+				if verbose: pprint.pprint(data)
 				try:
-					text = output['text'].lower() 					
-					ts = output['ts']
-					channel = output['channel']
-				   	user = output['user']		   	
-				   	try: 
-				   		thread_ts = output['thread_ts']
-			   		except KeyError: 
-			   			thread_ts = ts				   	
+					text    = data['text'].lower() 					
+					ts      = data['ts']
+					channel = data['channel']
+				   	user    = data['user']		   					   	
 				except KeyError:
 					continue			
 				context = {"user_id":user, "ts":ts, 
-				           "channel":channel, 
-						   "thread_ts":thread_ts}				
-			 
-				#only react to messages directed at the bot						   	
-				if self.at_bot in text or channel in self.direct_messages \
-					and 'bot_id' not in output:				
+				   		   "channel":channel}		
+				reply=None			
+		 		if 'bot_id' in data and text == "pong":			 		
+					#this message was posted by pong (as a bot)
+					#thus, changing back to user reponding to survey			 		
+			 		self.run_interactive_survey(data) 		
+				#only react to messages directed at the bot
+				elif self.at_bot in text or channel in self.DMs \
+				 and 'bot_id' not in data:
+				 	#if this is an interactive survey only read survey 'notes'
+				 	if self.interactive and user in self.sleek.ongoing_surveys:
+				 		ongoing_survey = self.sleek.ongoing_surveys[user]
+				 		if ongoing_survey.has_open_notes():				 			
+							ongoing_survey.put_notes(text)
+							rep = self.sleek.get_survey_answers(user)
+							#update current answer post  				
+							_, ans_thread, notes_thread = self.open_responses[user]
+							self.fancy_post_update(channel, 
+									  			   SleekMsg(out.NOTE_CONFIRM_2), 
+												   notes_thread)						
+							self.fancy_post_update(channel, 
+									  			   rep, 
+												   ans_thread)						
+						continue
 					#remove bot mention
-			   		text = text.replace(self.at_bot,"").strip()			   					   		
-					#if user is not talking on a direct message with sleek
+			   		text = text.replace(self.at_bot,"").strip()
+					#if user is not on DM with sleek 
 					#open a new one, and reply there
-					if channel not in self.direct_messages:
+					if channel not in self.DMs:
 						new_context = self.greet_user(text, context)					
 						context = new_context
 						channel = new_context["channel"]
-			   		if dbg:
-			   			#debug mode lets unhandled exceptions explode
-			   			reply = self.sleek.read(text, context)			   			
-		   			else:
-		   				try:
-			   				reply = self.sleek.read(text, context)
-		   				except Exception as e:	   					
-		   					reply = "```[FATAL ERROR: {}]```".format(e)
-		   			#post replies
-		   			assert type(reply) is list		   			
-	   				for r in reply:
-	   					self.post_slack(channel, str(r))
-	   				
-
-				print "[waiting for @{}...|{}]".format(self.bot_name, team_name)				
+	   				try:
+		   				reply = self.sleek.read(text, context)
+	   				except Exception as e:	   					
+	   					#debug mode lets unhandled exceptions explode
+	   					if dbg: 
+	   						traceback.print_exc()
+	   						raise e
+   						else: reply = ["```[FATAL ERROR]```"]
+		   			if reply is not None:
+			   			assert type(reply) is list, set_trace()		   			
+			   			#post replies
+			   			if self.fancy_msgs:
+			   				for r in reply: self.fancy_post(channel, r)
+			   			else:
+		   					for r in reply: self.postMessage(channel, unicode(r))
+   					
+				print "[waiting for {}@{}...]".format(self.bot_name, team_name)	
 				time.sleep(READ_WEBSOCKET_DELAY)
+
+	def run_interactive_survey(self, data):		
+		user_id   = data["attachments"][0]["author_name"]
+		thread_ts = data["thread_ts"]
+		text      = data["attachments"][0]["text"]
+		channel   = self.user2DM[user_id]
+		try:
+			this_survey = self.sleek.ongoing_surveys[user_id]
+		except KeyError: #there is no survey going for this user				
+				self.deleteMessage(channel, thread_ts)
+				return
+ 		arg1, arg2 = text.split()	 		
+ 		if arg2 == "[sleek:ok]":
+ 			survey_thread, answer_thread, notes_thread = self.open_responses[user_id]
+ 			del self.open_responses[user_id]
+ 			#delete answers 				
+			self.deleteMessage(channel, notes_thread)
+			self.deleteMessage(channel, answer_thread)
+			self.deleteMessage(channel, survey_thread)
+ 			try:
+ 				self.sleek.ongoing_surveys[user_id].save()
+ 				self.fancy_post(channel, 
+							    SleekMsg(out.ANSWERS_SAVE_OK))
+ 			except RuntimeError as e:
+ 				#replace survey with message
+ 				self.fancy_post(channel, 
+								SleekMsg(e.message))
+		elif arg2 == "[sleek:cancel]":
+ 			self.sleek.cancel_survey(user_id)
+ 			#update UI
+ 			try: #there are already some answers 				
+ 				survey_thread, ans_thread, notes_thread = self.open_responses[user_id]
+				del self.open_responses[user_id]
+				#delete answers 				 				
+				if notes_thread is not None:
+ 					self.deleteMessage(channel, notes_thread)
+				self.deleteMessage(channel, ans_thread)
+			except KeyError: 
+				survey_thread = thread_ts
+			self.deleteMessage(channel, survey_thread)
+			self.fancy_post(channel, 
+		 				    SleekMsg(out.SURVEY_CANCELED))
+		elif arg2 == "[sleek:notes]":
+			if not self.sleek.ongoing_surveys[user_id].has_open_notes():
+ 				self.sleek.ongoing_surveys[user_id].put_notes("")
+ 				ts = self.fancy_post(channel, SleekMsg(out.ANSWERS_ADD_NOTE))
+ 				#keep the post id for the notes
+ 				self.open_responses[user_id][2] = ts
+ 		else: #this an answer 			
+	 		q_id, ans = arg1, arg2
+	 		this_survey.put_answer(q_id, int(ans))
+			rep = self.sleek.get_survey_answers(user_id)
+			try: #update current answer post  				
+				survey_thread, answer_thread, _ = self.open_responses[user_id]
+				self.fancy_post_update(channel, 
+									  rep, 
+									  answer_thread)				
+			except KeyError: #new answer				
+	 			ts = self.fancy_post(channel, rep)
+	 			#holds the ids to the survey, answer and notes post
+	 			self.open_responses[user_id]=[thread_ts, ts, None]
+	 			survey_thread = thread_ts
+ 			#if survey is complete show additional buttons
+			if self.sleek.ongoing_surveys[user_id].is_complete():
+				survey_msg = this_survey.get_SleekMsg()				
+				survey_msg.set_field("ok_button", True)
+				survey_msg.set_field("notes_button", True)
+				self.fancy_post_update(channel, 
+									  survey_msg, 
+									  survey_thread)
+
+	def fancy_post(self, channel, msg, thread_ts=None):				
+		#we might want to have different formatting for interactive mode
+		msg.set_field("interactive", self.interactive)						
+		fm = fancier.format(msg)		
+		if type(fm) == unicode:
+			ts = self.postMessage(channel, fm, ts=thread_ts)
+		elif type(fm) == list:
+			ts = self.postMessage(channel, message=" ", ts=thread_ts, attach=fm)
+		else:
+			raise NotImplementedError
+		return ts
+
+	def fancy_post_update(self, channel, msg, ts):				
+		#we might want to have different formatting for interactive mode
+		msg.set_field("interactive", self.interactive)						
+		fm = fancier.format(msg)		
+		if type(fm) == unicode:
+			ts = self.updateMessage(channel, fm, ts=ts)
+		elif type(fm) == list:
+			ts = self.updateMessage(channel, message=" ", ts=ts, attach=fm)
+		else:
+			raise NotImplementedError
+		return ts
 
 	def greet_user(self, text, context):
 		#open new DM
 		user_id = context["user_id"]		
 		channel = context["channel"]
 		new_dm = self.open_dm(user_id) 
-		self.direct_messages[new_dm] = user_id					
+		self.DMs[new_dm] = user_id					
 		try:
 			username = self.sleek.users[user_id].username
 		except KeyError:
 			username=""
 		#greet user and move conversation to a private chat
-		self.post_slack(channel, out.GREET_USER.format(self.sleek.greet(), username))		
+		self.postMessage(channel, out.GREET_USER.format(self.sleek.greet(), username))		
 		#say hi on the new DM	
 		hello = "Hello! I prefer talking in private :slightly_smiling_face:"	
-		self.post_slack(new_dm, hello)
-		self.post_slack(new_dm, "> *you said*: _{}_\n\n".format(text))
+		self.postMessage(new_dm, hello)
+		self.postMessage(new_dm, "> *you said*: _{}_\n\n".format(text))
 		context["channel"] = new_dm
 
 		return context
 	
 	def remind_user(self, user_id, survey_id, period):
-		self.post_slack(user_id, out.REMIND_SURVEY.format(survey_id,period))				
-	
+		self.postMessage(user_id, out.REMIND_SURVEY.format(survey_id,period))				
 	def get_team_name(self):
 		resp = self.slack_client.api_call("team.info") 
 		if not resp.get("ok"): 			
@@ -182,7 +291,7 @@ class Sleek4Slack():
 		else:
 			return resp["channel"]["id"]
 
-	def post_slack(self, channel, message, ts=None, attach=None):		
+	def postMessage(self, channel, message, ts=None, attach=None):		
 		
 		if message is not None and len(message)>0:			
 			print u"[posting:\"{}\" to channel {}]".format(message,channel)		
@@ -200,6 +309,37 @@ class Sleek4Slack():
 		  					 text=message,
 		  					 attachments=attach)
 			
-			if not resp.get("ok"): print u"\033[31m[error: {}]\033[0m".format(resp["error"])
+			if not resp.get("ok"): 
+				print u"\033[31m[error: {}]\033[0m".format(resp["error"])
+				return None
+			else:
+				return resp["ts"]
 
+	def updateMessage(self, channel, message, ts, attach=None):		
+		
+		if message is not None and len(message)>0:			
+			print u"[updating post:{} -> \"{}\" @ channel {}]".format(ts, message,channel)					
+			resp = self.slack_client.api_call("chat.update",
+	  					 channel=channel,
+	  					 as_user=True,
+	  					 ts=ts,
+	  					 text=message,
+	  					 attachments=attach)			
+			
+			if not resp.get("ok"): 
+				print u"\033[31m[error: {}]\033[0m".format(resp["error"])
+				return None
+			else:
+				return resp["ts"]
+
+	def deleteMessage(self, channel, ts):						
+		resp = self.slack_client.api_call("chat.delete",
+  					 channel=channel,
+  					 as_user=True,
+  					 ts=ts)
+		if not resp.get("ok"): 
+			print u"\033[31m[error: {}]\033[0m".format(resp["error"])
+			return None
+		else:
+			return resp["ts"]
 	

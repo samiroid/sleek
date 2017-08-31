@@ -13,6 +13,8 @@ ANSWERS_SAVE_OK = u"Answer saved :+1:"
 ANSWERS_SAVE_FAIL = u"Error saving answer :cold_sweat:"
 ANSWERS_CONFIRM = u"If you are happy with your responses, type `ok`, otherwise enter a new response. \nType `notes` to add a short note to this answer. \nYou can also `cancel` this answer. "
 NOTE_CONFIRM = u"If you like your note, type `ok`, otherwise take your time and write a new note :kissing_heart: \nYou can also `cancel` this survey. "
+NOTE_CONFIRM_2 = u"If you like your note, hit `ok`, otherwise take your time and write a new note :kissing_heart: \nYou can also `cancel` this survey. "
+
 ANSWERS_DELETE_OK = u"All of your answers to survey _{}_ are gone :+1:"
 ANSWERS_DELETE_FAIL = u"I could not delete your _{}_ survey answers :cold_sweat:"
 ANSWERS_ADD_NOTE = u":writing_hand: Enter a short note about your survey response:"
