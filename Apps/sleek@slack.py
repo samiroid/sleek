@@ -1,14 +1,10 @@
 import argparse
 import json
-from src.slack import Sleek4Slack
-from src.sleek import Sleek
-from src.backend import Backend
 import os
-
-try:
-	from ipdb import set_trace
-except ImportError:
-	from pdb import set_trace
+import sys
+sys.path.insert(0,'..')
+from sleek import Backend, Sleek4Slack
+from ipdb import set_trace
 
 def get_parser():
     parser = argparse.ArgumentParser(description="Sleek@Slack")
@@ -40,7 +36,7 @@ def get_api_token(key, method="env"):
 
 if __name__ == "__main__":	
 	parser = get_parser()
-	args = parser.parse_args()	
+	args = parser.parse_args()		
 	confs = json.load(open(args.cfg, 'r'))		 					
 	if args.init:
 		db = Backend(confs,init=True)	

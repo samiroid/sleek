@@ -633,7 +633,6 @@ class Sleek(ChatBot):
 		#remove this survey from the open surveys
 		del self.ongoing_surveys[user_id]
 
-
 # methods to format the replies
 def format_answer(a, notes=None):		
 	ans = u"\n".join(["*{}*: {}".format(f,v) for f,v in a.items() if f!="notes"])

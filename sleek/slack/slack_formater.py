@@ -1,11 +1,8 @@
 import pandas as pd
 from string import ascii_letters
-import out
 from ipdb import set_trace
-import pprint
 
-def format(msg):
-	
+def format(msg):	
 	if msg.type == "survey_list":
 		user_surveys = msg.get_field("user_surveys")
 		other_surveys = msg.get_field("other_surveys")
