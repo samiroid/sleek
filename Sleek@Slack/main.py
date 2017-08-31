@@ -3,8 +3,9 @@ import json
 import os
 import sys
 sys.path.insert(0,'..')
-from sleek import Backend, Sleek4Slack
-from ipdb import set_trace
+from sleek import Backend
+from sleek.frontend.slack import Sleek4Slack
+# from ipdb import set_trace
 
 def get_parser():
     parser = argparse.ArgumentParser(description="Sleek@Slack")

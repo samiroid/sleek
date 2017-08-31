@@ -5,7 +5,7 @@ from string import ascii_letters
 import time
 import traceback
 #sleek
-from ..core import out, Sleek, SleekMsg 
+from ...core import out, Sleek, SleekMsg 
 import slack_formater as fancier
 try:	
 	from ipdb import set_trace
