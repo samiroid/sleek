@@ -4,7 +4,6 @@ import json
 import os
 import pprint
 from pdb import set_trace
-import quinn.loqsmith as loqsmith
 from slackclient import SlackClient
 import sys
 
