@@ -71,14 +71,14 @@ def sleek():
 	  					 thread_ts=thread_ts)
 		return ""
 	else:
-		return "got it"
+		return "pong get :)"
 
 @app.route("/",methods=['GET'])
 def hello():			
 	return "Hi there! :)"
 
-load_tokens()
-if len(api_tokens) == 0: raise RuntimeError
+# load_tokens()
+# if len(api_tokens) == 0: raise RuntimeError
 sys.stderr.write(repr(api_tokens))
 
 if __name__ == "__main__": 

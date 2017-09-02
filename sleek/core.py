@@ -7,8 +7,7 @@ import pandas as pd
 from string import ascii_letters
 
 #sleek
-from backend import Backend
-from kafka_backend import KafkaBackend
+from backend import Backend, KafkaBackend
 from bots import ChatBot
 import out
 
@@ -171,8 +170,8 @@ class User(object):
 	
 class Sleek(ChatBot):
 
-	sleek_announce = ''' I am {}, the chat bot :robot_face: -- If we never met, you can start by typing `help` '''	
-	help_dict={
+	__sleek_announce = ''' I am {}, the chat bot :robot_face: -- If we never met, you can start by typing `help` '''	
+	__help_dict={
 		"delete": [u"`delete` `<SURVEY_ID>` | `all`", 
 		           u"delete all the answers to survey `<SURVEY_ID>` (or all)"],
 		"join": [u"`join` `<SURVEY_ID>` `[HH:MM (AM|PM)]`", 
@@ -188,13 +187,14 @@ class Sleek(ChatBot):
 					 u"set reminders for survey `<SURVEY_ID>`"]	
 		}	
 	
-	default_cfg = { "announce": unicode(sleek_announce),
-				    "help": u"\n".join([" - ".join(h) for h in help_dict.values()])
+	__default_cfg = { "announce": unicode(__sleek_announce),
+				    "help": u"\n".join([" - ".join(__h) 
+				    	for __h in __help_dict.values()])
 				  }
 
 	def __init__(self, confs, reminder_callback):
 		#init parent class
-		ChatBot.__init__(self, Sleek.default_cfg)
+		ChatBot.__init__(self, Sleek.__default_cfg)
 		if confs["backend_type"]=="local":
 			self.backend = Backend(confs)
 		elif confs["backend_type"]=="kafka":
@@ -215,7 +215,7 @@ class Sleek(ChatBot):
 	def load_users(self, users):
 		"""
 			Load Users
-			##########
+			
 			users - dictionary {user_id:User}			
 		"""			
 		self.users = {uid: User(uid, uname, self) for uname, uid in users.items()}		
@@ -229,7 +229,7 @@ class Sleek(ChatBot):
 		if len(tokens) < 2: 	
 			return [SleekMsg(self.oops()), 
 			        SleekMsg(out.MISSING_PARAMS), 
-			        SleekMsg(Sleek.help_dict["report"][0])]		
+			        SleekMsg(Sleek.__help_dict["report"][0])]		
 		survey_id = tokens[1]
 		user_id = context["user_id"]											
 		#check if survey exists
@@ -256,7 +256,7 @@ class Sleek(ChatBot):
 	def cmd_answers_delete(self, tokens, context):
 		"""
 			Delete answers to a survey
-			=========================
+			
 			user_id   - user id
 			survey_id - survey id
 		"""	
@@ -264,7 +264,7 @@ class Sleek(ChatBot):
 		if len(tokens) < 2: 			
 			return [SleekMsg(self.oops()), 
 			        SleekMsg(out.MISSING_PARAMS), 
-			        SleekMsg(Sleek.help_dict["delete"][0])]
+			        SleekMsg(Sleek.__help_dict["delete"][0])]
 		survey_id = tokens[1]
 		user_id = context["user_id"]
 		#check if survey exists									
@@ -288,13 +288,13 @@ class Sleek(ChatBot):
 	def cmd_survey_join(self, tokens, context):
 		"""	
 			Join a survey
-			=============		
+					
 		"""		
 		#check params
 		if len(tokens) < 3: 	
 			return [SleekMsg(self.oops()), 
 					SleekMsg(out.MISSING_PARAMS), 
-					SleekMsg(Sleek.help_dict["join"][0])]	
+					SleekMsg(Sleek.__help_dict["join"][0])]	
 		survey_id = tokens[1]
 		user_id = context["user_id"]											
 		#check if survey exists
@@ -329,7 +329,7 @@ class Sleek(ChatBot):
 	def cmd_survey_leave(self, tokens, context):
 		"""	
 			Leave a survey
-			=============
+			
 			user_id   - user id
 			survey_id - survey id
 		"""
@@ -337,7 +337,7 @@ class Sleek(ChatBot):
 		if len(tokens) < 2: 			
 			return [SleekMsg(self.oops()), 
 					SleekMsg(out.MISSING_PARAMS), 
-					SleekMsg(Sleek.help_dict["leave"][0])]	
+					SleekMsg(Sleek.__help_dict["leave"][0])]	
 		survey_id = tokens[1]
 		user_id = context["user_id"]	
 		#check if survey exists								
@@ -361,7 +361,7 @@ class Sleek(ChatBot):
 	def cmd_survey_list(self, tokens, context):
 		"""	
 			List user surveys
-			=============			
+						
 		"""
 		user_id = context["user_id"]
 		user_surveys = self.users[user_id].surveys
@@ -379,7 +379,7 @@ class Sleek(ChatBot):
 		if len(tokens) < 2: 			
 			return [SleekMsg(self.oops()), 
 					SleekMsg(out.MISSING_PARAMS), 
-					SleekMsg(Sleek.help_dict["leave"][0]) ]		
+					SleekMsg(Sleek.__help_dict["leave"][0]) ]		
 		survey_id = tokens[1]
 		user_id = context["user_id"]											
 		#check if survey exists
@@ -402,7 +402,7 @@ class Sleek(ChatBot):
 	def cmd_reminder_add(self, tokens, context):
 		"""	
 			Add a reminder for user/survey
-			==============================
+			
 			user_id   - user id
 			survey_id - survey id
 		"""		
@@ -410,7 +410,7 @@ class Sleek(ChatBot):
 		if len(tokens) < 3: 			
 			return [SleekMsg(self.oops()), 
 					SleekMsg(out.MISSING_PARAMS), 
-			        SleekMsg(Sleek.help_dict["reminder"][0]) ]
+			        SleekMsg(Sleek.__help_dict["reminder"][0]) ]
 		survey_id = tokens[1]	
 		user_id = context["user_id"]	
 		#check if survey exists

@@ -2,7 +2,7 @@ from random import randint
 
 class ChatBot(object): 
 	
-	default_cfg={
+	__default_cfg={
 				"announce": u"Hello I am a chatbot but I can't do much yet...",
 				"ack": [u"ok",u"got it!",u"sure",u"no problem"],
 				"greet": [u"hi",u"yo",u"hello",u"hey"],
@@ -24,7 +24,7 @@ class ChatBot(object):
 		self.__oops = None
 
 		if cfg is None:			
-			self.__load_cfg(ChatBot.default_cfg)
+			self.__load_cfg(ChatBot.__default_cfg)
 		else:			
 			self.__load_cfg(cfg)
 
@@ -38,32 +38,32 @@ class ChatBot(object):
 		try:
 			self.__greets = cfg["greet"]
 		except KeyError:
-			self.__greets = ChatBot.default_cfg["greet"]
+			self.__greets = ChatBot.__default_cfg["greet"]
 
 		try:
 			self.__acks = cfg["ack"]
 		except KeyError:
-			self.__acks = ChatBot.default_cfg["ack"]
+			self.__acks = ChatBot.__default_cfg["ack"]
 		
 		try:
 			self.__nacks = cfg["nack"]
 		except KeyError:
-			self.__nacks = ChatBot.default_cfg["nack"]
+			self.__nacks = ChatBot.__default_cfg["nack"]
 
 		try:
 			self.__help = cfg["help"]
 		except KeyError:
-			self.__help = ChatBot.default_cfg["help"]
+			self.__help = ChatBot.__default_cfg["help"]
 
 		try:
 			self.__announce = cfg["announce"]
 		except KeyError:
-			self.__announce = ChatBot.default_cfg["announce"]
+			self.__announce = ChatBot.__default_cfg["announce"]
 
 		try:
 			self.__oops = cfg["oops"]
 		except KeyError:
-			self.__oops = ChatBot.default_cfg["oops"]
+			self.__oops = ChatBot.__default_cfg["oops"]
 
 	def __get_rand(self, obj):
 		"""

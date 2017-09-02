@@ -2,6 +2,7 @@
 	Methods to comunicate with a backend
 """
 
+import codecs
 from datetime import datetime
 import json
 import os
@@ -15,14 +16,14 @@ except ImportError:
 
 class Backend(object):
 	#user table columns
-	USER_ID = 0
-	USER_ACTIVE = 1
+	# USER_ID = 0
+	# USER_ACTIVE = 1
 
 	#user_surveys table columns
-	SURVEYS_USER_ID = 0
-	SURVEYS_ID = 1
-	SURVEYS_AM_REMINDER = 2
-	SURVEYS_PM_REMINDER = 3
+	# SURVEYS_USER_ID = 0
+	# SURVEYS_ID = 1
+	# SURVEYS_AM_REMINDER = 2
+	# SURVEYS_PM_REMINDER = 3
 
 	def __init__(self, confs, init=False):
 		"""
@@ -207,18 +208,6 @@ class Backend(object):
 	# REMINDER METHODS
 	#################################################################
 
-	# def get_reminders(self):
-	# 	sql = '''SELECT * FROM user_surveys'''
-	# 	return  self.__get(sql)
-
-	# def get_reminders(self, user_id=None):
-	# 	if user_id is None:
-	# 		sql = ''' SELECT * FROM user_surveys'''
-	# 		return self.__get(sql)
-	# 	else:
-	# 		sql = ''' SELECT survey_id, am_reminder, pm_reminder FROM user_surveys WHERE user_id=?'''
-	# 		return self.__get(sql,(user_id,))
-
 	def save_reminder(self, user_id, survey_id, schedule):
 		if schedule is None:
 			sql = '''UPDATE user_surveys SET am_reminder=NULL, pm_reminder=NULL WHERE user_id=? AND survey_id=?'''
@@ -251,6 +240,40 @@ class Backend(object):
 		sql = '''SELECT ts, notes FROM {} WHERE user_id=? AND notes IS NOT NULL order by ts DESC'''.format(survey_table)
 		return self.__get(sql,(user_id,))
 
+	#################################################################
+	# OTHER 
+	#################################################################	
+
+	def dump_surveys(self, path):
+		"""
+			Dump all the tables 
+		"""
+		surveys = self.list_surveys()
+
+		dir_name = os.path.dirname(path)
+		print dir_name		
+		if not os.path.exists(dir_name):
+			os.makedirs(dir_name)
+		
+		for s in surveys:
+			survey_id = s[0]
+			getter = "SELECT * FROM survey_{}".format(survey_id)			
+			data = self.__get(getter)
+			if len(data)>0:				
+				print "[getting: {}]".format(getter)
+				# print data
+				this_path="{}survey_{}.txt".format(path,survey_id)
+				with codecs.open(this_path,"w") as f:
+					for d in data:
+						#replace None with empty string						
+						nd = map(lambda x:"" if x is None else x, d)
+						row = u"\t".join(nd[1:])
+						print "\t[writing: {}]".format(row)						
+						f.write(row+"\n")
+				print "\n"
+
+				
+			
 
 	def load_surveys(self, surveys_path):
 		"""
@@ -281,11 +304,3 @@ class Backend(object):
 				ignored.append(path)	
 		if len(ignored) > 0:
 			print "[ignored the files: {}]".format(repr(ignored))
-
-		
-
-
-
-
-	
-
