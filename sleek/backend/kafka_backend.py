@@ -2,7 +2,7 @@
 	Methods to comunicate with a Kafka server 
 """
 
-from local import Backend
+from local_backend import Backend
 from datetime import datetime
 import json
 from kafka import KafkaProducer
