@@ -47,7 +47,7 @@ if __name__ == "__main__":
 		db.load_surveys(args.surveys)
 		print "loaded surveys"
 	elif args.connect:
-		sleek4slack = Sleek4Slack(confs, fancy_msgs=True)
+		sleek4slack = Sleek4Slack(confs)
 		api_token = get_api_token(args.api_token_id,
 								  args.api_token_from)		
 		sleek4slack.connect(api_token)						

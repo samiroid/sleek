@@ -83,7 +83,7 @@ class Survey(object):
 			Add a note to this survey
 			=========================
 			note - a text note
-		"""
+		"""		
 		self.notes = notes
 
 	def is_complete(self):
@@ -97,7 +97,7 @@ class Survey(object):
 		#convert answers to their corresponding indices
 		for q_id, ans in self.answers.items():
 			answers[q_id] = self.answer_choices[q_id].index(ans)
-		if self.notes is not None:
+		if self.notes is not None:			
 			answers["notes"] = self.notes
 		#record timestamp
 		ts = datetime.now().strftime('%Y-%m-%d %H:%M')
@@ -242,6 +242,7 @@ class Sleek(ChatBot):
 					SleekMsg(out.SURVEY_NOT_SUBSCRIBED.format(survey_id.upper()))]		
 		data = self.backend.get_report(user_id, survey_id)		
 		if len(data) > 0:
+			# set_trace()
 			report = format_report(self.all_surveys[survey_id], data)			
 			#build fancy message
 			m = SleekMsg(report, msg_type="report")
@@ -644,7 +645,7 @@ def format_answer(a, notes=None):
 
 def format_report(survey, data):
 	survey_id = survey["id"]
-	ret = u"*report {}*\n\n{}"	
+	ret = "*report {}*\n\n{}"	
 	#survey answer tables have the columns: id, user_id, timestamp, answer_1, ... , answer_N, notes	
 	df_answers = pd.DataFrame(data).iloc[:,2:]				
 	df_answers.columns = ["ts"] + [q["q_id"] for q in survey["questions"]] + ["notes"]
@@ -655,10 +656,15 @@ def format_report(survey, data):
 		choices = q["choices"]
 		answers = df_answers[q_id]
 		df_answers[q_id] = map(lambda x: choices[int(x)], answers)	
-	#replace None with empty string in the notes
-	df_answers["notes"] = map(lambda x: "" if x is None else x, df_answers["notes"])	
+	#replace None with empty string in the notes	
+	XX = map(lambda x: "" if x is None else x.encode("utf-8"), 
+		 		  			  df_answers["notes"])
+	set_trace()
+	df_answers["notes"] = XX
+
 	df_answers.set_index('ts', inplace=True)	
-	return ret.format(survey_id.upper(), repr(df_answers))	
+	x = ret.format(survey_id.upper(), repr(df_answers))
+	return x
 
 def format_survey(survey):
 	ret = u"*===== {} Survey =====* \n".format(survey["id"].upper())

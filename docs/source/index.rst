@@ -10,8 +10,7 @@ Contents:
 
 .. toctree::
    :maxdepth: 2
-
-   silvio
+   
    modules
 
 Indices and tables

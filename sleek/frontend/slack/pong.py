@@ -49,7 +49,7 @@ def sleek():
 		payload = json.loads(request.form['payload'])		
 		pprint.pprint(payload)
 		bot = payload["original_message"]["user"]
-		slack_user = payload["callback_id"]
+		slack_user, api_token = payload["callback_id"].split("@")		
 		thread_ts = payload["original_message"]["ts"]
 		action = payload['actions'][0]		
 		question = action["name"]
@@ -57,7 +57,8 @@ def sleek():
 		txt = question + " " + ans				
 		key = payload["team"]["domain"]
 		print "key: {}".format(key)
-		slacker = SlackClient(api_tokens[key])
+		# slacker = SlackClient(api_tokens[key])
+		slacker = SlackClient(api_token)
 		attach = []
 		attach.append({ "fallback": "pong",
         		 		"text": txt,
@@ -79,7 +80,7 @@ def hello():
 
 # load_tokens()
 # if len(api_tokens) == 0: raise RuntimeError
-sys.stderr.write(repr(api_tokens))
+# sys.stderr.write(repr(api_tokens))
 
 if __name__ == "__main__": 
 	app.run()

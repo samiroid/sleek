@@ -20,10 +20,10 @@ sleek.backend.kafka_backend module
     :undoc-members:
     :show-inheritance:
 
-sleek.backend.local module
---------------------------
+sleek.backend.local_backend module
+----------------------------------
 
-.. automodule:: sleek.backend.local
+.. automodule:: sleek.backend.local_backend
     :members:
     :undoc-members:
     :show-inheritance:

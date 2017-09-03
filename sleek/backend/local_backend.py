@@ -195,8 +195,24 @@ class Backend(object):
 
 	def save_answer(self, user_id, survey_id, answer):
 		"""
-			row is a dictionary: {column: value}
+			Save answers to survey
+
+			Parameters
+			----------
+			user_id: string
+				user id
+			survey_id: string
+				survey_id
+			answer: dict
+				dictionary with the answers {question_id:answer}
+
+			Returns
+			-------
+			answer_id: string
+				answers unique identifier (UUID)
 		"""
+
+		
 		ans_id = uuid.uuid4().hex
 		answer["user_id"] = user_id		
 		answer["id"] = ans_id
@@ -209,6 +225,18 @@ class Backend(object):
 	#################################################################
 
 	def save_reminder(self, user_id, survey_id, schedule):
+		"""
+			Save a new survey reminder for user `user_id`
+
+			Parameters
+			----------
+			user_id: string
+				user id
+			survey_id: string
+				survey_id
+			schedule: string
+				reminder time
+		"""
 		if schedule is None:
 			sql = '''UPDATE user_surveys SET am_reminder=NULL, pm_reminder=NULL WHERE user_id=? AND survey_id=?'''
 			params = (user_id, survey_id,)
@@ -227,6 +255,16 @@ class Backend(object):
 	#################################################################	
 
 	def get_report(self, user_id, survey_id):
+		"""
+			Get user `user_id` answers to survey `survey_id`
+
+			Parameters
+			----------
+			user_id: string
+				user id
+			survey_id: string
+				survey_id
+		"""
 		survey_table = "survey_{}".format(survey_id)
 		if not self.__table_exists(survey_table):
 			raise RuntimeError("survey {} does not exist".format(survey_id))
@@ -234,6 +272,16 @@ class Backend(object):
 		return self.__get(sql,(user_id,))
 
 	def get_notes(self, user_id, survey_id):
+		"""
+			Get user's `user_id` notes to survey `survey_id`
+
+			Parameters
+			----------
+			user_id: string
+				user id
+			survey_id: string
+				survey_id
+		"""
 		survey_table = "survey_{}".format(survey_id)
 		if not self.__table_exists(survey_table):
 			raise RuntimeError("survey {} does not exist".format(survey_id))
@@ -246,7 +294,13 @@ class Backend(object):
 
 	def dump_surveys(self, path):
 		"""
-			Dump all the tables 
+			Dump survey tables. \n
+			Each table will be serialized to a file with the table name (e.g. survey_stress.txt)
+			
+			Parameters
+			-----------
+			path: string
+				path to output folder 
 		"""
 		surveys = self.list_surveys()
 
@@ -270,25 +324,26 @@ class Backend(object):
 						row = u"\t".join(nd[1:])
 						print "\t[writing: {}]".format(row)						
 						f.write(row+"\n")
-				print "\n"
+				print "\n"			
 
-				
-			
-
-	def load_surveys(self, surveys_path):
+	def load_surveys(self, path):
 		"""
 			Loads surveys in batch mode
-			surveys_path: path to folder containing surveys in json format
+
+			Parameters
+			-----------
+			path: string
+				path to folder containing surveys in json format.
 		"""
-		print "[loading surveys @ {}]".format(surveys_path)
+		print "[loading surveys @ {}]".format(path)
 		ignored = []
-		for fname in os.listdir(surveys_path):	
-			path = surveys_path+fname
-			if os.path.splitext(path)[1]!=".json":
+		for fname in os.listdir(path):	
+			abs_path = path+fname
+			if os.path.splitext(abs_path)[1]!=".json":
 				ignored.append(fname)			
 				continue	
 			try:		
-				with open(path, 'r') as f:					
+				with open(abs_path, 'r') as f:					
 					try:
 						survey = json.load(f)				
 					except ValueError:
@@ -299,8 +354,7 @@ class Backend(object):
 						print "\t>" + fname	
 					except RuntimeError as e:
 						print e
-
 			except IOError:
-				ignored.append(path)	
+				ignored.append(abs_path)	
 		if len(ignored) > 0:
 			print "[ignored the files: {}]".format(repr(ignored))

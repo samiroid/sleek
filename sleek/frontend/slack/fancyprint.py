@@ -14,11 +14,13 @@ def format(msg):
 	elif msg.type == "survey":
 		survey = msg.get_field("survey")
 		user_id = msg.get_field("user_id")
+		api_token = msg.get_field("api_token")
+		callback_id = user_id+"@"+api_token
 		if msg.get_field("interactive"):
-			attach = attach_survey(survey, user_id)
+			attach = attach_survey(survey, callback_id)
 			ok_button = msg.get_field("ok_button") == True
 			notes_button = msg.get_field("notes_button") == True
-			actions = get_actions(user_id, 
+			actions = get_actions(callback_id, 
 								  cancel_button=True,
 								  ok_button=ok_button, 
 								  notes_button=notes_button)
@@ -34,7 +36,7 @@ def format(msg):
 	else:	 
 		return msg.text
 
-def attach_answer(a, user_id, notes=None):
+def attach_answer(a, callback_id, notes=None):
 	
 	field_list = []
 	for f,v in a.items():
@@ -52,7 +54,7 @@ def attach_answer(a, user_id, notes=None):
         		 "color": "good",		        		          		 
         		 "pretext": "These were you responses",
         		 # u"title":"{} survey".format(survey_id.upper()),
-        		 "callback_id":user_id,
+        		 "callback_id":callback_id,
         	     "fields":field_list,
         	     "text":" ",        	     
         	     "mrkdwn_in": ["text","pretext","title","fields"]
@@ -62,14 +64,15 @@ def attach_answer(a, user_id, notes=None):
 		attach.append({ "fallback": "notes",
         		 		"color": "warning",	
         		 		"title": "notes",	        
-        		 		"callback_id":user_id,          		 
+        		 		"callback_id":callback_id,          		 
         		 		"text": u"_{}_".format(notes),        	     		
         	     		"mrkdwn_in": ["text","pretext","title","fields"]        	
 		 				})
 
 	return attach
 
-def get_actions(user_id, cancel_button=True, ok_button=False, notes_button=False):
+def get_actions(callback_id, cancel_button=True, 
+				ok_button=False, notes_button=False):
 	actions = []
 	if cancel_button:
 		actions.append({"name": "action",
@@ -91,7 +94,7 @@ def get_actions(user_id, cancel_button=True, ok_button=False, notes_button=False
 	
 	attach = { "fallback": "actions",
     		 	"color": "#CCCCCC",	        		 		
-    		 	"callback_id":user_id,          		         		 		
+    		 	"callback_id":callback_id,          		         		 		
     	     	"mrkdwn_in": ["text","pretext","title","fields"],
     	     	"actions":actions }
  	return attach
@@ -100,7 +103,9 @@ def attach_report(survey, data, notes):
 
 	survey_id = survey["id"]	
 	df_answers = pd.DataFrame(data).iloc[:,2:]				
-	df_answers.columns = ["ts"] + [q["q_id"] for q in survey["questions"]] + ["notes"]
+	df_answers.columns =  ["ts"]
+	df_answers.columns += [q["q_id"] for q in survey["questions"]] 
+	df_answers.columns += ["notes"]
 	df_answers['ts'] = pd.to_datetime(df_answers['ts']).dt.strftime("%Y-%m-%d %H:%M")
 	#convert numeric answers back to their text values
 	for q in survey["questions"]:
@@ -123,7 +128,7 @@ def attach_report(survey, data, notes):
 
 	return attach
 
-def attach_survey(survey, user_id):
+def attach_survey(survey, callback_id):
 	attaches = []	
 
 	for q_num, q in enumerate(survey["questions"]):			
@@ -143,7 +148,7 @@ def attach_survey(survey, user_id):
 		x = { "fallback": "Survey",
     		   "color": "good",    		   
     	        "fields": question,
-           		"callback_id": user_id,
+           		"callback_id": callback_id,
 	            "actions": actions,
     	       "mrkdwn_in": ["text","pretext","title","fields","buttons","actions"] 
     	      }
