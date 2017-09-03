@@ -203,7 +203,7 @@ class Sleek(ChatBot):
 			raise NotImplementedError		
 		self.remind_user = reminder_callback 
 		self.all_surveys = {x[0]:json.loads(x[1]) \
-							for x in self.backend.list_surveys()}		
+							for x in self.backend.list_surveys()}
 		self.users = None
 		#holds ongoing surveys
 		self.ongoing_surveys = {}
@@ -218,7 +218,7 @@ class Sleek(ChatBot):
 			
 			users - dictionary {user_id:User}			
 		"""			
-		self.users = {uid: User(uid, uname, self) for uname, uid in users.items()}		
+		self.users = {uid: User(uid, uname, self) for uname, uid in users.items()}
 
 	#################################################################
 	# BOT COMMAND METHODS
@@ -226,32 +226,31 @@ class Sleek(ChatBot):
 
 	def cmd_answers_report(self, tokens, context):	
 		#check params
-		if len(tokens) < 2: 	
-			return [SleekMsg(self.oops()), 
-			        SleekMsg(out.MISSING_PARAMS), 
-			        SleekMsg(Sleek.__help_dict["report"][0])]		
+		if len(tokens) < 2:
+			return [SleekMsg(self.oops()),
+			        SleekMsg(out.MISSING_PARAMS),
+			        SleekMsg(Sleek.__help_dict["report"][0])]
 		survey_id = tokens[1]
-		user_id = context["user_id"]											
+		user_id = context["user_id"]
 		#check if survey exists
-		if not survey_id in self.all_surveys: 				
-			return [SleekMsg(self.oops()), 
+		if not survey_id in self.all_surveys:
+			return [SleekMsg(self.oops()),
 			        SleekMsg(out.SURVEY_UNKNOWN.format(survey_id.upper()))]
 		#check if user has subscribed this survey
-		if survey_id not in self.users[user_id].surveys: 				
-			return [SleekMsg(self.oops()), 
-					SleekMsg(out.SURVEY_NOT_SUBSCRIBED.format(survey_id.upper()))]		
-		data = self.backend.get_report(user_id, survey_id)		
+		if survey_id not in self.users[user_id].surveys:
+			return [SleekMsg(self.oops()),
+					SleekMsg(out.SURVEY_NOT_SUBSCRIBED.format(survey_id.upper()))]
+		data = self.backend.get_report(user_id, survey_id)
 		if len(data) > 0:
 			# set_trace()
-			report = format_report(self.all_surveys[survey_id], data)			
+			report = format_report(self.all_surveys[survey_id], data)
 			#build fancy message
 			m = SleekMsg(report, msg_type="report")
 			m.set_field("survey", self.all_surveys[survey_id])
 			m.set_field("data", data)
-
-			return [SleekMsg(self.ack()), m]					
+			return [SleekMsg(self.ack()), m]
 		else:
-			return [SleekMsg(self.oops()), 
+			return [SleekMsg(self.oops()),
 				    SleekMsg(out.REPORT_EMPTY.format(survey_id.upper()))]
 
 	def cmd_answers_delete(self, tokens, context):
@@ -262,28 +261,28 @@ class Sleek(ChatBot):
 			survey_id - survey id
 		"""	
 		#check params
-		if len(tokens) < 2: 			
-			return [SleekMsg(self.oops()), 
-			        SleekMsg(out.MISSING_PARAMS), 
+		if len(tokens) < 2:
+			return [SleekMsg(self.oops()),
+			        SleekMsg(out.MISSING_PARAMS),
 			        SleekMsg(Sleek.__help_dict["delete"][0])]
 		survey_id = tokens[1]
 		user_id = context["user_id"]
 		#check if survey exists									
-		if not survey_id in self.all_surveys: 				
+		if not survey_id in self.all_surveys:			
 			return [SleekMsg(self.oops()),
 			 		SleekMsg(out.SURVEY_UNKNOWN.format(survey_id.upper()))]
 		#check if user has subscribed this survey
 		if not survey_id in self.users[user_id].surveys:
 			return [SleekMsg(self.oops()),
 					SleekMsg(out.SURVEY_NOT_SUBSCRIBED.format(survey_id.upper()))]
-		try:		
-			self.backend.delete_answers(user_id, survey_id)					
-			return [SleekMsg(self.ack()), 
-			        SleekMsg(out.ANSWERS_DELETE_OK.format(survey_id.upper()))]			
-		except RuntimeError as r:		
+		try:
+			self.backend.delete_answers(user_id, survey_id)
+			return [SleekMsg(self.ack()),
+			        SleekMsg(out.ANSWERS_DELETE_OK.format(survey_id.upper()))]
+		except RuntimeError as r:
 			e  = out.ANSWERS_DELETE_FAIL.format(survey_id.upper())
-			e += "\n[err: {}]".format(str(r))		
-			return [SleekMsg(self.oops()), 
+			e += "\n[err: {}]".format(str(r))
+			return [SleekMsg(self.oops()),
 					SleekMsg(e)]
 				
 	def cmd_survey_join(self, tokens, context):
@@ -293,38 +292,38 @@ class Sleek(ChatBot):
 		"""		
 		#check params
 		if len(tokens) < 3: 	
-			return [SleekMsg(self.oops()), 
-					SleekMsg(out.MISSING_PARAMS), 
-					SleekMsg(Sleek.__help_dict["join"][0])]	
+			return [SleekMsg(self.oops()),
+					SleekMsg(out.MISSING_PARAMS),
+					SleekMsg(Sleek.__help_dict["join"][0])]
 		survey_id = tokens[1]
-		user_id = context["user_id"]											
+		user_id = context["user_id"]					
 		#check if survey exists
-		if not survey_id in self.all_surveys: 				
-			return [SleekMsg(self.oops()), 
+		if not survey_id in self.all_surveys:
+			return [SleekMsg(self.oops()),
 					SleekMsg(out.SURVEY_UNKNOWN.format(survey_id.upper()))]
 		#check if user has subscribed this survey
-		if survey_id in self.users[user_id].surveys: 				
-			return [SleekMsg(self.oops()), 
+		if survey_id in self.users[user_id].surveys:
+			return [SleekMsg(self.oops()),
 					SleekMsg(out.SURVEY_IS_SUBSCRIBED.format(survey_id.upper()))]
 		#first validate reminder schedules
-		try:			
-			am_reminder, pm_reminder = self.parse_reminder_times(tokens[2:])			
+		try:
+			am_reminder, pm_reminder = self.parse_reminder_times(tokens[2:])
 		except ValueError as e:
-			return [SleekMsg(self.oops()), 
+			return [SleekMsg(self.oops()),
 					SleekMsg(e.message)]
 		#join survey
 		try:
 			self.users[user_id].survey_join(survey_id)
 			#try to set reminders
 			if am_reminder is not None or pm_reminder is not None:
-				rm = self.cmd_reminder_add(tokens, context)			
+				rm = self.cmd_reminder_add(tokens, context)
 			return [SleekMsg(self.ack()), 
 					SleekMsg(out.SURVEY_JOIN_OK.format(survey_id.upper())), 
 					rm[1]]
-		except RuntimeError as r:		
+		except RuntimeError as r:
 			e  = out.SURVEY_JOIN_FAIL.format(survey_id.upper())
-			e += "\n[err: {}]".format(str(r))		
-			return [SleekMsg(self.oops()), 
+			e += "\n[err: {}]".format(str(r))
+			return [SleekMsg(self.oops()),
 					SleekMsg(e)]
 
 	def cmd_survey_leave(self, tokens, context):
@@ -336,27 +335,27 @@ class Sleek(ChatBot):
 		"""
 		#check params
 		if len(tokens) < 2: 			
-			return [SleekMsg(self.oops()), 
-					SleekMsg(out.MISSING_PARAMS), 
-					SleekMsg(Sleek.__help_dict["leave"][0])]	
+			return [SleekMsg(self.oops()),
+					SleekMsg(out.MISSING_PARAMS),
+					SleekMsg(Sleek.__help_dict["leave"][0])]
 		survey_id = tokens[1]
-		user_id = context["user_id"]	
-		#check if survey exists								
-		if not survey_id in self.all_surveys: 				
-			return [SleekMsg(self.oops()), 
+		user_id = context["user_id"]
+		#check if survey exists							
+		if not survey_id in self.all_surveys:
+			return [SleekMsg(self.oops()),
 					SleekMsg(out.SURVEY_UNKNOWN.format(survey_id.upper()))]
 		#check if user has subscribed this survey
 		if not survey_id in self.users[user_id].surveys:
 			return [SleekMsg(self.oops()),
 					SleekMsg(out.SURVEY_NOT_SUBSCRIBED.format(survey_id.upper()))]
-		try:		
-			self.users[user_id].survey_leave(survey_id)				
+		try:
+			self.users[user_id].survey_leave(survey_id)
 			return [SleekMsg(self.ack()), 
-					SleekMsg(out.SURVEY_LEAVE_OK.format(survey_id.upper()))]			
-		except RuntimeError as r:		
+					SleekMsg(out.SURVEY_LEAVE_OK.format(survey_id.upper()))]
+		except RuntimeError as r:
 			e  = out.SURVEY_LEAVE_FAIL.format(survey_id.upper())
-			e += "\n[err: {}]".format(str(r))		
-			return [SleekMsg(self.oops()), 
+			e += "\n[err: {}]".format(str(r))
+			return [SleekMsg(self.oops()),
 				    SleekMsg(e)]
 		
 	def cmd_survey_list(self, tokens, context):
@@ -366,38 +365,35 @@ class Sleek(ChatBot):
 		"""
 		user_id = context["user_id"]
 		user_surveys = self.users[user_id].surveys
-		other_surveys = list(set(self.all_surveys.keys()) - set(user_surveys))		
+		other_surveys = list(set(self.all_surveys.keys()) - set(user_surveys))
 		output = format_survey_list(user_surveys, other_surveys)
 		#build rich message
 		m = SleekMsg(output, msg_type="survey_list")
 		m.set_field("user_surveys", user_surveys)
 		m.set_field("other_surveys", other_surveys)
-		return [SleekMsg(self.ack()), 
-				m]
+		return [SleekMsg(self.ack()), m]
 
 	def cmd_survey_take(self, tokens, context):
 		#check params
 		if len(tokens) < 2: 			
-			return [SleekMsg(self.oops()), 
-					SleekMsg(out.MISSING_PARAMS), 
-					SleekMsg(Sleek.__help_dict["leave"][0]) ]		
+			return [SleekMsg(self.oops()),
+					SleekMsg(out.MISSING_PARAMS),
+					SleekMsg(Sleek.__help_dict["leave"][0]) ]
 		survey_id = tokens[1]
-		user_id = context["user_id"]											
+		user_id = context["user_id"]					
 		#check if survey exists
-		if not survey_id in self.all_surveys: 				
-			return [SleekMsg(self.oops()), 
+		if not survey_id in self.all_surveys:
+			return [SleekMsg(self.oops()),
 					SleekMsg(out.SURVEY_UNKNOWN.format(survey_id.upper()))]
 		#check if user has subscribed this survey
 		if not survey_id in self.users[user_id].surveys:
 			return [SleekMsg(self.oops()),
 					SleekMsg(out.SURVEY_NOT_SUBSCRIBED.format(survey_id.upper()))]
-		#register new survey	
-		
+		#register new survey		
 		survey = self.all_surveys[survey_id]
-		s = Survey(survey, user_id, self)		
+		s = Survey(survey, user_id, self)
 		self.ongoing_surveys[user_id] = s
-		msg = s.get_SleekMsg()			
-		
+		msg = s.get_SleekMsg()		
 		return [SleekMsg(self.ack()), msg]
 
 	def cmd_reminder_add(self, tokens, context):
@@ -409,14 +405,14 @@ class Sleek(ChatBot):
 		"""		
 		#check params
 		if len(tokens) < 3: 			
-			return [SleekMsg(self.oops()), 
-					SleekMsg(out.MISSING_PARAMS), 
+			return [SleekMsg(self.oops()),
+					SleekMsg(out.MISSING_PARAMS),
 			        SleekMsg(Sleek.__help_dict["reminder"][0]) ]
-		survey_id = tokens[1]	
-		user_id = context["user_id"]	
+		survey_id = tokens[1]
+		user_id = context["user_id"]
 		#check if survey exists
-		if not survey_id in self.all_surveys: 				
-			return [SleekMsg(self.oops()), 
+		if not survey_id in self.all_surveys:
+			return [SleekMsg(self.oops()),
 					SleekMsg(out.SURVEY_UNKNOWN.format(survey_id.upper()))]
 		#check if user has subscribed this survey
 		if not survey_id in self.users[user_id].surveys:
@@ -427,20 +423,20 @@ class Sleek(ChatBot):
 		except ValueError as e:
 			return [SleekMsg(self.oops()), 
 					SleekMsg(e.message)]
-		self.users[user_id].reminder_save(survey_id, am_reminder, pm_reminder)		
+		self.users[user_id].reminder_save(survey_id, am_reminder, pm_reminder)
 		#choose a return message
-		if am_reminder is not None and pm_reminder is not None:			
-			txt = out.REMINDER_OK_2.format(survey_id.upper(), 
-										   am_reminder, pm_reminder)					
-		elif am_reminder is not None:						
+		if am_reminder is not None and pm_reminder is not None:
+			txt = out.REMINDER_OK_2.format(survey_id.upper(),
+										   am_reminder, pm_reminder)
+		elif am_reminder is not None:
 			txt = out.REMINDER_OK.format(survey_id.upper(), am_reminder)
-		elif pm_reminder is not None:							
+		elif pm_reminder is not None:
 			txt = out.REMINDER_OK.format(survey_id.upper(), pm_reminder)
 		else:
 			return [SleekMsg(self.oops()), 
 				    SleekMsg(out.REMINDER_FAIL.format(survey_id))]
 		 
-	 	return [SleekMsg(self.ack()), 
+	 	return [SleekMsg(self.ack()),
 	 		    SleekMsg(txt)]
 
 	def read(self, text, context):
@@ -448,26 +444,26 @@ class Sleek(ChatBot):
 		#ongoing survey
 		if context["user_id"] in self.ongoing_surveys:
 			return self.run_survey(tokens, context)
-		else:			
+		else:
 			action = tokens[0]
-			params =  u','.join(tokens[1:])		
-			print u"[user: {}| action: {}({})]".format(context["user_id"], 
-													   action, params)	
+			params =  u','.join(tokens[1:])
+			print u"[user: {}| action: {}({})]".format(context["user_id"],
+													   action, params)
 			#Actions			
 			# ====== ANSWERS ======
 			# ---- DELETE
-			if action == "delete": return self.cmd_answers_delete(tokens, context)	
+			if action == "delete": return self.cmd_answers_delete(tokens, context)
 			# ---- REPORT ----
 			elif action == "report": return self.cmd_answers_report(tokens, context)
 			# ====== SURVEYS ======
 			# ---- JOIN ----
-			elif action == "join": return self.cmd_survey_join(tokens, context)			
+			elif action == "join": return self.cmd_survey_join(tokens, context)
 			# ---- TAKE ----
-			elif action == "survey": return self.cmd_survey_take(tokens, context)		
+			elif action == "survey": return self.cmd_survey_take(tokens, context)
 			# ---- LEAVE ----
-			elif action == "leave": return self.cmd_survey_leave(tokens, context)		
+			elif action == "leave": return self.cmd_survey_leave(tokens, context)
 			# ---- LIST ----
-			elif action == "list": return self.cmd_survey_list(tokens, context)			
+			elif action == "list": return self.cmd_survey_list(tokens, context)		
 			#---- REMIND ----
 			elif action == "reminder": return self.cmd_reminder_add(tokens, context)
 			#---- PASS IT TO THE PARENT CLASS (maybe it knows how to handle this input)
@@ -477,98 +473,47 @@ class Sleek(ChatBot):
 				return replies
 	
 	def run_survey(self, tokens, context):
-		user_id = context["user_id"]		
+		user_id = context["user_id"]
 		survey = self.ongoing_surveys[user_id]
-		assert survey.user_id == user_id		
+		assert survey.user_id == user_id
 		if tokens[0] == "cancel":
 			#remove this survey from the open surveys
 			del self.ongoing_surveys[user_id]
-			return [SleekMsg(self.ack()), 
+			return [SleekMsg(self.ack()),
 					SleekMsg(out.SURVEY_CANCELED)]
 		elif tokens[0] == "notes":
 			if not survey.has_open_notes():
 				#empty note
 				survey.put_notes("")
-				return [SleekMsg(out.ANSWERS_ADD_NOTE)]		
+				return [SleekMsg(out.ANSWERS_ADD_NOTE)]
 		elif tokens[0] == "ok":
 			try:
 				survey.save()
-				return [SleekMsg(self.ack()), 
+				return [SleekMsg(self.ack()),
 						SleekMsg(out.ANSWERS_SAVE_OK)]
 			except RuntimeError as e:
 				return [SleekMsg(self.oops()), 
-						SleekMsg(e.message)]			
+						SleekMsg(e.message)]
 		# --- PARSE ANSWERS TO SURVEY ---
 		#if a note was started, then this is a new note
-		if survey.has_open_notes(): survey.put_notes(" ".join(tokens))		
+		if survey.has_open_notes(): survey.put_notes(" ".join(tokens))
 		else:
 			#parse a new answer
 			try:
-				survey.put_answers(tokens)			
+				survey.put_answers(tokens)
 			except RuntimeError as e:
 				return [SleekMsg(e.message)]
 		#show current answers
 		ans = format_answer(survey.answers, survey.notes)
 		#fancy message		
 		fm = SleekMsg(ans, msg_type="answer")
-		fm.set_field("answers", survey.answers)		
+		fm.set_field("answers", survey.answers)
 		if survey.notes is None:
 			resp = out.ANSWERS_CONFIRM
 		else:
 			fm.set_field("notes", survey.notes)
 			resp = out.NOTE_CONFIRM
-		return [fm, 
-				SleekMsg(resp)]
-
-	def old_run_survey(self, tokens, context):
-		user_id = context["user_id"]		
-		survey = self.ongoing_surveys[user_id]
-		assert survey.user_id == user_id		
-		if tokens[0] == "cancel":
-			#remove this survey from the open surveys
-			del self.ongoing_surveys[user_id]
-			return [SleekMsg(self.ack()), 
-					SleekMsg(out.SURVEY_CANCELED)]
-		elif tokens[0] == "notes":
-			if not survey.has_open_notes():
-				#empty note
-				survey.put_notes("")
-				return [SleekMsg(out.ANSWERS_ADD_NOTE)]		
-		elif tokens[0] == "ok":
-			if not survey.is_complete():
-				return [SleekMsg(self.oops()), 
-						SleekMsg(out.ANSWERS_INVALID)]
-			answers = survey.get_answers()			
-			try:
-				self.backend.save_answer(user_id, survey.id, answers)
-				#remove this survey from the open surveys
-				del self.ongoing_surveys[user_id]
-				return [SleekMsg(self.ack()), 
-						SleekMsg(out.ANSWERS_SAVE_OK)]
-			except ValueError:
-				return [SleekMsg(self.oops()), 
-						SleekMsg(out.ANSWERS_SAVE_FAIL)]
-		# --- PARSE ANSWERS TO SURVEY ---
-		#if a note was started, then this is a new note
-		if survey.has_open_notes(): survey.put_notes(" ".join(tokens))		
-		else:
-			#parse a new answer
-			try:
-				survey.put_answers(tokens)			
-			except RuntimeError as e:
-				return [SleekMsg(e.message)]
-		#show current answers
-		ans = format_answer(survey.answers, survey.notes)
-		#fancy message
-		fields =  {"answers":survey.answers,
-				   "notes": survey.notes}
-		fm = SleekMsg(ans, msg_type="answer", fields=fields)
-		if survey.notes is None:
-			resp = out.ANSWERS_CONFIRM
-		else:
-			resp = out.NOTE_CONFIRM
-		return [fm, 
-				SleekMsg(resp)]
+		return [fm, SleekMsg(resp)]
 
 	#################################################################
 	# REMINDER METHODS
@@ -588,25 +533,25 @@ class Sleek(ChatBot):
 																schedule)			
 			remind_at = datetime.strptime(schedule , '%I:%M%p').time()
 			period = remind_at.strftime('%p')			
-			try:				
-				job = self.reminders[(user_id,survey_id)][period]					
+			try:
+				job = self.reminders[(user_id,survey_id)][period]
 				#if this reminder already exists, simply update the schedule
 				job.reschedule(trigger='cron', hour=remind_at.hour, 
-							   minute=remind_at.minute)					
-			except KeyError:						
-				#else, create new 
-				job = self.scheduler.add_job(self.remind_user, 
-											 args=[user_id,survey_id.upper(), 
+							   minute=remind_at.minute)		
+			except KeyError:
+				#else, create new
+				job = self.scheduler.add_job(self.remind_user,
+											 args=[user_id,survey_id.upper(),
 											 	  period.upper()],
-											 	  trigger='cron', 
-											 	  hour=remind_at.hour, 
+											 	  trigger='cron',
+											 	  hour=remind_at.hour,
 											 	  minute=remind_at.minute)
 				self.reminders[(user_id,survey_id)][period] = job
 
 	def parse_reminder_times(self, tokens):
 		am_reminder,pm_reminder = None, None
 		#validate input times by trying to convert to datetime
-		for t in tokens:	
+		for t in tokens:
 			try:
 				dt = datetime.strptime(t , '%I:%M%p').time()
 				if   "am" in t: am_reminder = dt
@@ -622,9 +567,9 @@ class Sleek(ChatBot):
 	# OTHER METHODS
 	#################################################################		
 	def get_survey_answers(self, user_id):
-		survey = self.ongoing_surveys[user_id]		
-		ans = format_answer(survey.answers, survey.notes)		
-		s = SleekMsg(ans, msg_type="answer")   
+		survey = self.ongoing_surveys[user_id]
+		ans = format_answer(survey.answers, survey.notes)
+		s = SleekMsg(ans, msg_type="answer")
 		s.set_field("answers", survey.answers)
 		s.set_field("notes", survey.notes)
 		s.set_field("user_id", "user_id")
@@ -635,7 +580,7 @@ class Sleek(ChatBot):
 		del self.ongoing_surveys[user_id]
 
 # methods to format the replies
-def format_answer(a, notes=None):		
+def format_answer(a, notes=None):
 	ans = u"\n".join(["*{}*: {}".format(f,v) for f,v in a.items() if f!="notes"])
 	if notes is not None:
 		ret = u"Your answers\n>>>{}\n\nnotes:\n{} ".format(ans,notes)
@@ -645,7 +590,7 @@ def format_answer(a, notes=None):
 
 def format_report(survey, data):
 	survey_id = survey["id"]
-	ret = "*report {}*\n\n{}"	
+	ret = u"*report {}*\n\n{}"	
 	#survey answer tables have the columns: id, user_id, timestamp, answer_1, ... , answer_N, notes	
 	df_answers = pd.DataFrame(data).iloc[:,2:]				
 	df_answers.columns = ["ts"] + [q["q_id"] for q in survey["questions"]] + ["notes"]
@@ -657,10 +602,8 @@ def format_report(survey, data):
 		answers = df_answers[q_id]
 		df_answers[q_id] = map(lambda x: choices[int(x)], answers)	
 	#replace None with empty string in the notes	
-	XX = map(lambda x: "" if x is None else x.encode("utf-8"), 
-		 		  			  df_answers["notes"])
-	set_trace()
-	df_answers["notes"] = XX
+	df_answers["notes"] = map(lambda x: "" if x is None else x, 
+							  df_answers["notes"])
 
 	df_answers.set_index('ts', inplace=True)	
 	x = ret.format(survey_id.upper(), repr(df_answers))

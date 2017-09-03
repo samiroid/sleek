@@ -5,7 +5,7 @@ def get_parser():
     parser = argparse.ArgumentParser(description="Dump User Surveys")
     parser.add_argument('-db', type=str, required=True, 
     					help="path to the DB")    
-    parser.add_argument('-output', type=str, 
+    parser.add_argument('-output', type=str, required=True, 
     					help='path to the output folder')    
     return parser
 

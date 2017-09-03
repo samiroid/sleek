@@ -102,10 +102,11 @@ def get_actions(callback_id, cancel_button=True,
 def attach_report(survey, data, notes):	
 
 	survey_id = survey["id"]	
-	df_answers = pd.DataFrame(data).iloc[:,2:]				
-	df_answers.columns =  ["ts"]
-	df_answers.columns += [q["q_id"] for q in survey["questions"]] 
-	df_answers.columns += ["notes"]
+	df_answers = pd.DataFrame(data).iloc[:,2:]
+	# df_answers.columns =  ["ts"]
+	# df_answers.columns += [q["q_id"] for q in survey["questions"]] 
+	# df_answers.columns += ["notes"]
+	df_answers.columns = ["ts"] + [q["q_id"] for q in survey["questions"]] + ["notes"]
 	df_answers['ts'] = pd.to_datetime(df_answers['ts']).dt.strftime("%Y-%m-%d %H:%M")
 	#convert numeric answers back to their text values
 	for q in survey["questions"]:
