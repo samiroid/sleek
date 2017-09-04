@@ -16,14 +16,7 @@ except ImportError:
 
 class Backend(object):
 	#user table columns
-	# USER_ID = 0
-	# USER_ACTIVE = 1
-
-	#user_surveys table columns
-	# SURVEYS_USER_ID = 0
-	# SURVEYS_ID = 1
-	# SURVEYS_AM_REMINDER = 2
-	# SURVEYS_PM_REMINDER = 3
+	
 
 	def __init__(self, confs, init=False):
 		"""
@@ -33,7 +26,7 @@ class Backend(object):
 		
 		if init:
 			dir_name = os.path.dirname(self.DB_path)
-			if not os.path.exists(dir_name):
+			if len(dir_name)>0 and not os.path.exists(dir_name):
 				os.makedirs(dir_name)		
 			self.__create_DB()
 
@@ -210,9 +203,7 @@ class Backend(object):
 			-------
 			answer_id: string
 				answers unique identifier (UUID)
-		"""
-
-		
+		"""		
 		ans_id = uuid.uuid4().hex
 		answer["user_id"] = user_id		
 		answer["id"] = ans_id
@@ -234,8 +225,9 @@ class Backend(object):
 				user id
 			survey_id: string
 				survey_id
-			schedule: string
-				reminder time
+			schedule: string or `None`
+				reminder time. Setting the `schedule` to `None` deletes 
+				the reminders
 		"""
 		if schedule is None:
 			sql = '''UPDATE user_surveys SET am_reminder=NULL, pm_reminder=NULL WHERE user_id=? AND survey_id=?'''

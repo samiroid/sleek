@@ -1,19 +1,24 @@
+# -*- coding: UTF-8 -*-
 from ipdb import set_trace
 import json
 import pytest
 import sys
 import sqlite3
-sys.path.append("sleek")
-from sleek.backend import LocalBackend as Backend
-
+sys.path.insert(0,'..')
+from sleek import Backend
 
 DB_path="test.db"
-
-cfg = {
-		"local_DB":DB_path
-		}
-
+cfg = {"local_DB":DB_path}
 user_id="SILVIO"
+
+USER_ID = 0
+USER_ACTIVE = 1
+
+#user_surveys table columns
+SURVEYS_USER_ID = 0
+SURVEYS_ID = 1
+SURVEYS_AM_REMINDER = 2
+SURVEYS_PM_REMINDER = 3
 
 sleep_survey = { "id": "sleep",
 	 				  "questions": [  { "q_id": "sleep_hours",
@@ -47,7 +52,7 @@ def __table_exists(table_name):
 #################################################################
 def test_add_user():
 	#create DB	
-	my_backend = Backend(cfg, create=True)
+	my_backend = Backend(cfg, init=True)
 	#make sure user does not exist	
 	assert my_backend.get_users(user_id=user_id) == []
 	#create user
@@ -57,14 +62,14 @@ def test_add_user():
 	sql = ''' SELECT * FROM users WHERE id=? '''
 	cursor.execute(sql, (user_id,))
 	resp = cursor.fetchone()	
-	assert resp[Backend.USER_ID]     == user_id and \
-		   resp[Backend.USER_ACTIVE] == 1	
+	assert resp[USER_ID]     == user_id and \
+		   resp[USER_ACTIVE] == 1	
 	#adding the same user should fail
 	assert not my_backend.add_user(user_id)
 
 def test_get_user():
 	#create DB
-	my_backend = Backend(cfg, create=True)	
+	my_backend = Backend(cfg, init=True)	
 	my_backend.add_user(user_id)			
 	#check that user was correctly created
 	db = sqlite3.connect(DB_path)
@@ -72,37 +77,37 @@ def test_get_user():
 	sql = ''' SELECT * FROM users WHERE id=? '''
 	cursor.execute(sql, (user_id,))
 	resp = cursor.fetchone()	
-	assert resp[Backend.USER_ID] == user_id and \
-	       resp[Backend.USER_ACTIVE] == 1
+	assert resp[USER_ID] == user_id and \
+	       resp[USER_ACTIVE] == 1
 	#load user
 	user = my_backend.get_users(user_id=user_id)[0]
-	assert user[Backend.USER_ID] == user_id and \
-	       resp[Backend.USER_ACTIVE] == 1
+	assert user[USER_ID] == user_id and \
+	       resp[USER_ACTIVE] == 1
 		
 def test_toggle_user():
-	my_backend = Backend(cfg, create=True)
+	my_backend = Backend(cfg, init=True)
 	#create user	
 	my_backend.add_user(user_id)	
 	#check it's active
 	user = my_backend.get_users(user_id=user_id)[0]
-	assert user[Backend.USER_ACTIVE] == 1
+	assert user[USER_ACTIVE] == 1
 	#disable user
 	my_backend.toggle_user(user_id,active=False)
 	#check it's inactive
 	user = my_backend.get_users(user_id=user_id)[0]
-	assert user[Backend.USER_ACTIVE] == 0
+	assert user[USER_ACTIVE] == 0
 	#enable user
 	my_backend.toggle_user(user_id, active=True)
 	#check it's active
 	user = my_backend.get_users(user_id=user_id)[0]
-	assert user[Backend.USER_ACTIVE] == 1
+	assert user[USER_ACTIVE] == 1
 	
 #################################################################
 # SURVEY METHODS
 #################################################################
 
 def test_create_survey():
-	my_backend = Backend(cfg, create=True)
+	my_backend = Backend(cfg, init=True)
 	
 	#check that survey tables do not exist
 	assert not __table_exists("survey_"+sleep_survey["id"])
@@ -130,7 +135,7 @@ def test_create_survey():
 		my_backend.create_survey(stress_survey)	
 
 def test_delete_answers():
-	my_backend = Backend(cfg, create=True)	
+	my_backend = Backend(cfg, init=True)	
 	#create sleep survey
 	my_backend.create_survey(sleep_survey)				
 	#save a few answers
@@ -140,9 +145,9 @@ def test_delete_answers():
 	#check answers ok
 	report = my_backend.get_report(user_id, sleep_survey["id"])	
 	print "rep", report
-	assert report[0] == (3, user_id, u'400','7','3', None)
-	assert report[1] == (2, user_id, u'300','8','4', None)
-	assert report[2] == (1, user_id, u'200','9','5', None)	
+	assert report[0][1:] == (user_id, u'400','7','3', None)
+	assert report[1][1:] == (user_id, u'300','8','4', None)
+	assert report[2][1:] == (user_id, u'200','9','5', None)	
 	#delete answers
 	my_backend.delete_answers(user_id, sleep_survey["id"])
 	#check no answers
@@ -150,7 +155,7 @@ def test_delete_answers():
 	assert report == []	
 
 def test_get_survey():
-	my_backend = Backend(cfg, create=True)	
+	my_backend = Backend(cfg, init=True)	
 	#create survey
 	my_backend.create_survey(sleep_survey)
 	my_backend.create_survey(stress_survey)	
@@ -175,7 +180,7 @@ def test_get_survey():
 	
 	
 def test_join_survey():	
-	my_backend = Backend(cfg, create=True)		
+	my_backend = Backend(cfg, init=True)		
 	my_backend.create_survey(sleep_survey)	
 	#check that user has not joined survey
 	db = sqlite3.connect(DB_path)
@@ -205,7 +210,7 @@ def test_join_survey():
 			
 
 def test_list_surveys():
-	my_backend = Backend(cfg, create=True)	
+	my_backend = Backend(cfg, init=True)	
 	#create surveys
 	my_backend.create_survey(sleep_survey)
 	my_backend.create_survey(stress_survey)
@@ -220,7 +225,7 @@ def test_list_surveys():
 	assert resp[0][1] == "sleep"
 
 def test_save_answer():
-	my_backend = Backend(cfg, create=True)	
+	my_backend = Backend(cfg, init=True)	
 	my_backend.create_survey(sleep_survey)			
 	sql = '''SELECT * FROM survey_sleep WHERE user_id=? and id=?'''	
 	db = sqlite3.connect(DB_path)
@@ -237,61 +242,88 @@ def test_save_answer():
 #################################################################
 
 def test_reminders():
-	my_backend = Backend(cfg, create=True)	
+	my_backend = Backend(cfg, init=True)	
 	my_backend.create_survey(sleep_survey)		
 	#user joins survey	
+	survey_id = sleep_survey["id"]
 	my_backend.join_survey(user_id, sleep_survey["id"])
-	rems = my_backend.get_reminders()
-	assert rems[0] == (u'SILVIO', u'sleep', None, None)
+	rems = my_backend.list_surveys(user_id=user_id)
+	assert rems[0] == (user_id, survey_id, None, None)
 	#add AM reminder
-	my_backend.set_reminder(user_id, sleep_survey["id"], "10:00AM")
-	rems = my_backend.get_reminders()
-	assert rems[0] == (u'SILVIO', u'sleep', "10:00AM", None)
+	my_backend.save_reminder(user_id, sleep_survey["id"], "10:00AM")
+	rems = my_backend.list_surveys(user_id=user_id)
+	assert rems[0] == (user_id, survey_id, "10:00AM", None)
 	#new AM reminder
-	my_backend.set_reminder(user_id, sleep_survey["id"], "9:00AM")
-	rems = my_backend.get_reminders()
-	assert rems[0] == (u'SILVIO', u'sleep', "9:00AM", None)
+	my_backend.save_reminder(user_id, sleep_survey["id"], "9:00AM")
+	rems = my_backend.list_surveys(user_id=user_id)
+	assert rems[0] == (user_id, survey_id, "9:00AM", None)
 	#add PM reminder
-	my_backend.set_reminder(user_id, sleep_survey["id"], "2:00PM")
-	rems = my_backend.get_reminders()
-	assert rems[0] == (u'SILVIO', u'sleep', "9:00AM", "2:00PM")
+	my_backend.save_reminder(user_id, sleep_survey["id"], "2:00PM")
+	rems = my_backend.list_surveys(user_id=user_id)
+	assert rems[0] == (user_id, survey_id, "9:00AM", "2:00PM")
 	#remove reminders
-	my_backend.set_reminder(user_id, sleep_survey["id"], None)
-	rems = my_backend.get_reminders()
-	assert rems[0] == (u'SILVIO', u'sleep', None, None)
+	my_backend.save_reminder(user_id, sleep_survey["id"], None)
+	rems = my_backend.list_surveys(user_id=user_id)
+	assert rems[0] == (user_id, survey_id, None, None)
 
 #################################################################
 # REPORT METHODS
 #################################################################	
 def test_get_report():
-	my_backend = Backend(cfg, create=True)	
+	my_backend = Backend(cfg, init=True)	
 	#create sleep survey
 	my_backend.create_survey(sleep_survey)				
 	#save a few answers
-	my_backend.save_answer(user_id, sleep_survey["id"], {"sleep_hours":9,"sleep_quality":5, "ts":200,"notes":"this a nifty note"})
-	my_backend.save_answer(user_id, sleep_survey["id"], {"sleep_hours":8,"sleep_quality":4, "ts":300,"notes":"this a another note"})
-	my_backend.save_answer(user_id, sleep_survey["id"], {"sleep_hours":7,"sleep_quality":3, "ts":400,"notes":"this a neatfull note"})		
+	my_backend.save_answer(user_id, sleep_survey["id"], 
+							{"sleep_hours":9,
+							 "sleep_quality":5, 
+							 "ts":200,
+							 "notes":u"don’t look at this wáilde note"})
+
+	my_backend.save_answer(user_id, sleep_survey["id"],
+						   {"sleep_hours":8,
+						    "sleep_quality":4, 
+						    "ts":300,
+						    "notes":u"this a another note"})
+
+	my_backend.save_answer(user_id, sleep_survey["id"], 
+						   {"sleep_hours":7,
+						    "sleep_quality":3, 
+						    "ts":400,
+						    "notes":u"this a nifty note"})		
 	#check answers ok
 	report = my_backend.get_report(user_id, sleep_survey["id"])	
 	print "rep", report
-	assert report[0] == (3, user_id, u'400','7','3', "this a neatfull note")
-	assert report[1] == (2, user_id, u'300','8','4', "this a another note")
-	assert report[2] == (1, user_id, u'200','9','5', "this a nifty note")	
+	assert report[0][1:] == (user_id, u'400','7','3', u"this a nifty note")
+	assert report[1][1:] == (user_id, u'300','8','4', u"this a another note")
+	assert report[2][1:] == (user_id, u'200','9','5', u"don’t look at this wáilde note")	
 
 def test_get_notes():
-	my_backend = Backend(cfg, create=True)	
+	my_backend = Backend(cfg, init=True)	
 	#create sleep survey
 	my_backend.create_survey(sleep_survey)				
 	#save a few answers
-	my_backend.save_answer(user_id, sleep_survey["id"], {"sleep_hours":9,"sleep_quality":5, "ts":200,"notes":"this a nifty note"})
-	my_backend.save_answer(user_id, sleep_survey["id"], {"sleep_hours":8,"sleep_quality":4, "ts":300,"notes":"this a another note"})
-	my_backend.save_answer(user_id, sleep_survey["id"], {"sleep_hours":7,"sleep_quality":3, "ts":400,"notes":"this a neatfull note"})		
+	my_backend.save_answer(user_id, sleep_survey["id"], 
+							{"sleep_hours":9,
+							 "sleep_quality":5, 
+							 "ts":200,
+							 "notes":u"this a nifty note"})
+	my_backend.save_answer(user_id, sleep_survey["id"], 
+							{"sleep_hours":8,
+							 "sleep_quality":4, 
+							 "ts":300,
+							 "notes":u"this a another note"})
+	my_backend.save_answer(user_id, sleep_survey["id"], 
+						   {"sleep_hours":7,
+						    "sleep_quality":3, 
+						    "ts":400,
+						    "notes":u"this a neatfull note"})		
 	#check answers ok
 	report = my_backend.get_notes(user_id, sleep_survey["id"])	
 	print "rep", report
-	assert report[0] == ( u'400', "this a neatfull note")
-	assert report[1] == ( u'300', "this a another note")
-	assert report[2] == ( u'200', "this a nifty note")	
+	assert report[0] == ( u'400', u"this a neatfull note")
+	assert report[1] == ( u'300', u"this a another note")
+	assert report[2] == ( u'200', u"this a nifty note")	
 	
 	
 # 	

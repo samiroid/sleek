@@ -50,7 +50,7 @@ class Survey(object):
 		try:
 			#answers are indices into a list of choices
 			ans = [ascii_letters.index(a) for a in tokens]
-		except ValueError:
+		except (ValueError, TypeError):
 			raise RuntimeError(out.ANSWERS_INVALID)			
 		
 		#incorrect number of answers
@@ -70,8 +70,12 @@ class Survey(object):
 			========================
 			q_id - question id
 			a    - answer to question q_id (i.e., the index to the choices associated to this question)
-		"""				
-		choices = self.answer_choices[q_id]
+		"""		
+		try:
+			choices = self.answer_choices[q_id]
+		except KeyError:
+			error = out.ANSWERS_BAD_CHOICE.format(q_id)
+			raise RuntimeError(error)
 		if a not in range(len(choices)):
 			error = out.ANSWERS_BAD_CHOICE.format(q_id)
 			raise RuntimeError(error)
@@ -110,8 +114,11 @@ class Survey(object):
 		answers = self.get_answers()			
 		try:
 			self.sleek.backend.save_answer(self.user_id, self.id, answers)
-			#remove this survey from the open surveys
-			del self.sleek.ongoing_surveys[self.user_id]
+			try:
+				#remove this survey from the open surveys
+				del self.sleek.ongoing_surveys[self.user_id]
+			except KeyError:
+				pass
 		except ValueError:			
 			raise RuntimeError(out.ANSWERS_SAVE_FAIL)
 
@@ -128,9 +135,16 @@ class User(object):
 		self.username = username
 		self.user_id = user_id		
 		self.sleek = sleek
-		my_surveys = self.sleek.backend.list_surveys(user_id)
+		ms = self.sleek.backend.list_surveys(user_id)		
 		#dictionary {survey_id: (am_reminder, pm_reminder)}
-		self.surveys = {s[1]:[s[2],s[3]] for s in my_surveys}		
+		self.my_surveys = {s[1]:[s[2],s[3]] for s in ms}
+		#set reminders
+		for survey_id, [am_reminder, pm_reminder] in self.my_surveys.items():
+			if am_reminder is not None:
+				self.sleek.set_reminder(self.user_id, survey_id, am_reminder)
+			if pm_reminder is not None:
+				self.sleek.set_reminder(self.user_id, survey_id, pm_reminder)
+
 	
 	def survey_delete(self, survey_id):
 		"""
@@ -143,7 +157,7 @@ class User(object):
 			join survey survey_id
 		"""
 		self.sleek.backend.join_survey(self.user_id, survey_id)		
-		self.surveys[survey_id] = [None, None]
+		self.my_surveys[survey_id] = [None, None]
 	
 	def survey_leave(self, survey_id):
 		"""
@@ -153,7 +167,7 @@ class User(object):
 		self.sleek.backend.save_reminder(self.user_id, survey_id, None)		
 		#unset reminder in sleek
 		self.sleek.set_reminder(self.user_id, survey_id, None)		
-		del self.surveys[survey_id]
+		del self.my_surveys[survey_id]
 
 	def reminder_save(self, survey_id, am_reminder=None, pm_reminder=None):
 		"""
@@ -162,11 +176,11 @@ class User(object):
 		if am_reminder is not None:			
 			self.sleek.backend.save_reminder(self.user_id, survey_id, am_reminder)
 			self.sleek.set_reminder(self.user_id, survey_id, am_reminder)
-			self.surveys[survey_id][0] = am_reminder		
+			self.my_surveys[survey_id][0] = am_reminder		
 		if pm_reminder is not None:			
 			self.sleek.backend.save_reminder(self.user_id, survey_id, pm_reminder)
 			self.sleek.set_reminder(self.user_id, survey_id, pm_reminder)				
-			self.surveys[survey_id][1] = pm_reminder
+			self.my_surveys[survey_id][1] = pm_reminder
 	
 class Sleek(ChatBot):
 
@@ -237,7 +251,7 @@ class Sleek(ChatBot):
 			return [SleekMsg(self.oops()),
 			        SleekMsg(out.SURVEY_UNKNOWN.format(survey_id.upper()))]
 		#check if user has subscribed this survey
-		if survey_id not in self.users[user_id].surveys:
+		if survey_id not in self.users[user_id].my_surveys:
 			return [SleekMsg(self.oops()),
 					SleekMsg(out.SURVEY_NOT_SUBSCRIBED.format(survey_id.upper()))]
 		data = self.backend.get_report(user_id, survey_id)
@@ -272,7 +286,7 @@ class Sleek(ChatBot):
 			return [SleekMsg(self.oops()),
 			 		SleekMsg(out.SURVEY_UNKNOWN.format(survey_id.upper()))]
 		#check if user has subscribed this survey
-		if not survey_id in self.users[user_id].surveys:
+		if not survey_id in self.users[user_id].my_surveys:
 			return [SleekMsg(self.oops()),
 					SleekMsg(out.SURVEY_NOT_SUBSCRIBED.format(survey_id.upper()))]
 		try:
@@ -302,7 +316,7 @@ class Sleek(ChatBot):
 			return [SleekMsg(self.oops()),
 					SleekMsg(out.SURVEY_UNKNOWN.format(survey_id.upper()))]
 		#check if user has subscribed this survey
-		if survey_id in self.users[user_id].surveys:
+		if survey_id in self.users[user_id].my_surveys:
 			return [SleekMsg(self.oops()),
 					SleekMsg(out.SURVEY_IS_SUBSCRIBED.format(survey_id.upper()))]
 		#first validate reminder schedules
@@ -345,7 +359,7 @@ class Sleek(ChatBot):
 			return [SleekMsg(self.oops()),
 					SleekMsg(out.SURVEY_UNKNOWN.format(survey_id.upper()))]
 		#check if user has subscribed this survey
-		if not survey_id in self.users[user_id].surveys:
+		if not survey_id in self.users[user_id].my_surveys:
 			return [SleekMsg(self.oops()),
 					SleekMsg(out.SURVEY_NOT_SUBSCRIBED.format(survey_id.upper()))]
 		try:
@@ -364,7 +378,7 @@ class Sleek(ChatBot):
 						
 		"""
 		user_id = context["user_id"]
-		user_surveys = self.users[user_id].surveys
+		user_surveys = self.users[user_id].my_surveys
 		other_surveys = list(set(self.all_surveys.keys()) - set(user_surveys))
 		output = format_survey_list(user_surveys, other_surveys)
 		#build rich message
@@ -386,7 +400,7 @@ class Sleek(ChatBot):
 			return [SleekMsg(self.oops()),
 					SleekMsg(out.SURVEY_UNKNOWN.format(survey_id.upper()))]
 		#check if user has subscribed this survey
-		if not survey_id in self.users[user_id].surveys:
+		if not survey_id in self.users[user_id].my_surveys:
 			return [SleekMsg(self.oops()),
 					SleekMsg(out.SURVEY_NOT_SUBSCRIBED.format(survey_id.upper()))]
 		#register new survey		
@@ -415,7 +429,7 @@ class Sleek(ChatBot):
 			return [SleekMsg(self.oops()),
 					SleekMsg(out.SURVEY_UNKNOWN.format(survey_id.upper()))]
 		#check if user has subscribed this survey
-		if not survey_id in self.users[user_id].surveys:
+		if not survey_id in self.users[user_id].my_surveys:
 			return [SleekMsg(self.oops()),
 					SleekMsg(out.SURVEY_NOT_SUBSCRIBED.format(survey_id.upper()))]
 		try:
@@ -589,8 +603,10 @@ def format_answer(a, notes=None):
 	return ret
 
 def format_report(survey, data):
+
 	survey_id = survey["id"]
-	ret = u"*report {}*\n\n{}"	
+	ret = "*report {}*\n\n{}"	
+	
 	#survey answer tables have the columns: id, user_id, timestamp, answer_1, ... , answer_N, notes	
 	df_answers = pd.DataFrame(data).iloc[:,2:]				
 	df_answers.columns = ["ts"] + [q["q_id"] for q in survey["questions"]] + ["notes"]
@@ -605,8 +621,8 @@ def format_report(survey, data):
 	df_answers["notes"] = map(lambda x: "" if x is None else x, 
 							  df_answers["notes"])
 
-	df_answers.set_index('ts', inplace=True)	
-	x = ret.format(survey_id.upper(), repr(df_answers))
+	df_answers.set_index('ts', inplace=True)		
+	x = ret.format(survey_id.upper(), repr(df_answers)).decode("utf-8")	
 	return x
 
 def format_survey(survey):
