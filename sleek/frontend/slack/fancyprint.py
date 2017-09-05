@@ -2,6 +2,9 @@ import pandas as pd
 from string import ascii_letters
 from ipdb import set_trace
 
+
+COLOR_1="#0D6D8C"
+COLOR_2="#00A0BF"
 def format(msg):	
 	if msg.type == "survey_list":
 		user_surveys = msg.get_field("user_surveys")
@@ -51,7 +54,7 @@ def attach_answer(a, callback_id, notes=None):
                 })
 
 	attach = [{ "fallback": "reponse",
-        		 "color": "good",		        		          		 
+        		 "color": COLOR_1,		        		          		 
         		 "pretext": "These were you responses",
         		 # u"title":"{} survey".format(survey_id.upper()),
         		 "callback_id":callback_id,
@@ -62,7 +65,7 @@ def attach_answer(a, callback_id, notes=None):
 
 	if notes is not None:
 		attach.append({ "fallback": "notes",
-        		 		"color": "warning",	
+        		 		"color": COLOR_2,	
         		 		"title": "notes",	        
         		 		"callback_id":callback_id,          		 
         		 		"text": u"_{}_".format(notes),        	     		
@@ -120,7 +123,7 @@ def attach_report(survey, data, notes):
 	report = "```{}```".format(repr(df_answers))
 	attach = [
     			{ "fallback": "Survey Report",
-        		  "color": "good",
+        		  "color": COLOR_1,
         		  "pretext": u"Here is your report",            
         		  "title": survey_id.title(),            
         	      "text": report,
@@ -147,7 +150,7 @@ def attach_survey(survey, callback_id):
 			                })			
 
 		x = { "fallback": "Survey",
-    		   "color": "good",    		   
+    		   "color": COLOR_1,    		   
     	        "fields": question,
            		"callback_id": callback_id,
 	            "actions": actions,
@@ -161,7 +164,7 @@ def attach_survey_list(user_surveys, other_surveys):
 	attach = []	
 	if len(user_surveys) > 0:
 		active_list.append({                    
-	                    "value": "*Survey*",
+	                    "value": "*Subscribed Surveys*",
 	                    "short": True
 	                })
 			
@@ -194,8 +197,8 @@ def attach_survey_list(user_surveys, other_surveys):
 
 		#build attach
 		attach.append({ "fallback": "reponse",
-	        		 "color": "good",  
-	        		 "title": "Subscribed Surveys",
+	        		 "color": COLOR_1,  
+	        		 "title": "",
 	        	     "fields":active_list,
 	        	     "mrkdwn_in": ["text","pretext","title","fields"]
 			 				})
@@ -207,7 +210,7 @@ def attach_survey_list(user_surveys, other_surveys):
                 })
 		
 	attach.append({ "fallback": "reponse",
-    		 		"color": "warning",
+    		 		"color": COLOR_2,
     		 		"title": "Available Surveys",
     	     		"fields":inactive_list,
     	     		"mrkdwn_in": ["text","pretext","title","fields"]})
