@@ -1,13 +1,16 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from collections import defaultdict
 from datetime import datetime
-from ipdb import set_trace
+try:
+	from ipdb import set_trace
+except ImportError:
+	from pdb import set_trace
 import json
 import pandas as pd
 from string import ascii_letters
 
 #sleek
-from backend import Backend, KafkaBackend
+from backends import Backend
 from bots import ChatBot
 import out
 
@@ -212,6 +215,7 @@ class Sleek(ChatBot):
 		if confs["backend_type"]=="local":
 			self.backend = Backend(confs)
 		elif confs["backend_type"]=="kafka":
+			from backend import KafkaBackend
 			self.backend = KafkaBackend(confs)		
 		else:
 			raise NotImplementedError		

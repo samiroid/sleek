@@ -1,0 +1,4 @@
+apscheduler
+slackclient
+kafka
+pandas

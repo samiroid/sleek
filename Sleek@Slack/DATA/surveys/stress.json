@@ -1,5 +1,5 @@
 { "id": "stress",
   "questions": [  {"q_id": "stress_level",
-				"question": "In a scale from 1 to 5, how do you rate your stress level ?",
-				"choices": [1,2,3,4,5] } ]
+				"question": "On a scale of 1 - 5, how stressed do you feel right now? \n[1 = No stress, 5 = Extreme stress]",
+				"choices": [1,2,3,4,5,6] } ]
 }	

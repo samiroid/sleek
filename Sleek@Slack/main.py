@@ -4,7 +4,7 @@ import os
 import sys
 sys.path.insert(0,'..')
 from sleek import Backend
-from sleek.frontend.slack import Sleek4Slack
+from sleek.frontends.slack import Sleek4Slack
 # from ipdb import set_trace
 
 def get_parser():
@@ -48,8 +48,10 @@ if __name__ == "__main__":
 		print "loaded surveys"
 	elif args.connect:
 		sleek4slack = Sleek4Slack(confs)
+
 		api_token = get_api_token(args.api_token_id,
-								  args.api_token_from)		
+								  args.api_token_from)
+		print "connect with token: {} > {} ".format(args.api_token_id, api_token)		
 		sleek4slack.connect(api_token)						
 		if args.greet_at is not None:
 			sleek4slack.greet_channel(args.greet_at)		

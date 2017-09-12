@@ -1,6 +1,6 @@
 import pandas as pd
 from string import ascii_letters
-from ipdb import set_trace
+#from ipdb import set_trace
 
 
 COLOR_1="#0D6D8C"
@@ -136,8 +136,11 @@ def attach_survey(survey, callback_id):
 	attaches = []	
 
 	for q_num, q in enumerate(survey["questions"]):			
+		pq = map(lambda x:"{}".format(x) if x!="\n" else "\n", q["question"].split())
+		pretty_question = " ".join(pq)
+		pretty_question = q["question"]
 		question = [{                    
-                    "value": u"*{}*: _{}_".format(q["q_id"], q["question"]),
+                    "value": u"*{}*: {}".format(q["q_id"], pretty_question),
                     "short": False
                 }]		
 		actions = []
