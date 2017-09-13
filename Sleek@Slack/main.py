@@ -14,11 +14,7 @@ def get_parser():
     parser.add_argument('-init', action="store_true", 
     					help="Initializes the backend")
     parser.add_argument('-surveys', type=str, 
-    					help='path to a folder with the surveys in json format')    
-    parser.add_argument('-api_token_id', type=str, 
-    					help="API token ID to connect to Slack")        
-    parser.add_argument('-api_token_from', type=str, default="env", 
-    					help="method to retrieve the API token")        
+    					help='path to a folder with the surveys in json format')
     parser.add_argument('-dbg', action="store_true", 
     					help="Debug Mode (unhandled exceptions explode)")
     parser.add_argument('-verbose', action="store_true", help="Verbose Mode")
@@ -46,12 +42,16 @@ if __name__ == "__main__":
 		db = Backend(confs)
 		db.load_surveys(args.surveys)
 		print "loaded surveys"
-	elif args.connect:
-		sleek4slack = Sleek4Slack(confs)
-
-		api_token = get_api_token(args.api_token_id,
-								  args.api_token_from)
-		print "connect with token: {} > {} ".format(args.api_token_id, api_token)		
+	elif args.connect:		
+		try:
+			api_token_id = confs["api_token_id"]
+			api_token_from = confs["get_token_method"]
+		except KeyError:
+			print "Authentication info is missing on the configuration file"
+			sys.exit(-1)
+		api_token = get_api_token(api_token_id, api_token_from)
+		print "connecting with token: {} > {} ".format(api_token_id, api_token)
+		sleek4slack = Sleek4Slack(confs)		
 		sleek4slack.connect(api_token)						
 		if args.greet_at is not None:
 			sleek4slack.greet_channel(args.greet_at)		

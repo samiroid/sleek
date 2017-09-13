@@ -1,5 +1,5 @@
 # Use an official Python runtime as a parent image
-FROM continuumio/anaconda
+FROM python:2.7.13-slim
 
 # Set the working directory to /app
 WORKDIR /SleekBots/
