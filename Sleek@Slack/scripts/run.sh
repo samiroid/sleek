@@ -9,7 +9,7 @@ else
 		echo "READ CONF FROM " $CONFIG 
 		echo "CONNECTING"
 		#run
-		python main.py -cfg $CONFIG -connect -dbg  
+		python app.py -cfg $CONFIG -connect -dbg  
 	fi
 fi
 

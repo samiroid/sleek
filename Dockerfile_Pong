@@ -1,0 +1,17 @@
+## SLEEK-PONG DOCKERFILE
+FROM python:2.7.13-slim
+
+WORKDIR /pong
+ADD sleek/frontends/slack/pong.py /pong
+ADD scripts/requirements_pong.txt /pong
+RUN pip install -r requirements_pong.txt
+ENV FLASK_APP pong.py
+EXPOSE 80
+RUN ls
+CMD ["gunicorn", "-b", "0.0.0.0:80", "pong:app" ]
+
+
+
+
+
+

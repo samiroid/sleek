@@ -8,7 +8,7 @@ else
 		CONFIG=$1	
 		echo "READ CONF FROM " $CONFIG 
 		echo "INITING BACKEND"
-		python main.py -cfg $CONFIG -init -surveys DATA/surveys/
+		python app.py -cfg $CONFIG -init -surveys DATA/surveys/
 	fi
 fi
 

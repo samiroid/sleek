@@ -1,0 +1,15 @@
+## SLEEK@SLACK DOCKERFILE
+FROM python:2.7.13-slim
+
+WORKDIR /SleekBots/
+ADD . /SleekBots
+RUN pip install -r scripts/requirements_sleek.txt
+WORKDIR /SleekBots/Sleek@Slack
+ARG TOKEN
+# Define environment variable
+ENV PYTHONPATH .
+ENV SLEEK_BETA_TOKEN $TOKEN
+RUN python app.py -cfg DATA/confs/beta.cfg -init -surveys DATA/surveys/
+#check my env vars
+RUN env
+CMD ["python", "-u", "app.py", "-cfg", "DATA/confs/beta.cfg", "-connect","-dbg"]
