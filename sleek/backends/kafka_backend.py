@@ -2,12 +2,11 @@
 	Methods to comunicate with a Kafka server 
 """
 
-from local_backend import Backend
+from src import Backend
 from datetime import datetime
 import json
 from kafka import KafkaProducer
 import pprint
-
 
 class KafkaBackend(Backend):
 	def __init__(self, confs, init=False):		

@@ -1,4 +1,5 @@
-from datetime import datetime
+from datetime import datetime, timedelta
+import os
 import pprint
 from slackclient import SlackClient
 from string import ascii_letters
@@ -6,11 +7,12 @@ import time
 import traceback
 #sleek
 from ... import Sleek, SleekMsg, out 
-
 import fancyprint as fancier
+import io
+
 try:	
 	from ipdb import set_trace
-except ImportError:
+except:
 	from pdb import set_trace
 
 READ_WEBSOCKET_DELAY = 1 # 1 second delay between reading from firehose
@@ -23,17 +25,22 @@ class Sleek4Slack():
 		#these variables will be filled by the connect()
 		self.slack_client = None				
 		self.DMs = None
-		self.user2DM = None
+		self.user2DM = None		
 		#sleek
 		self.sleek = Sleek(confs, self.remind_user)
 		self.open_responses = {}	
+
 	#################################################################
 	# CORE METHODS
 	#################################################################	
 	def connect(self, api_token):
 		self.slack_client = SlackClient(api_token)				
-		slackers = self.list_slackers()		
+		slackers = self.list_slackers()	
+		me = "U5TCJ682Z"
+		#self.remind_user(me, "sleep", "AM")	
 		self.sleek.load_users(slackers)
+		#path = "DATA/happy.jpg"
+		#self.uploadFile(me, path)
 		self.at_bot = "<@{}>".format(slackers[self.bot_name]).lower() 		
 		#open direct messages		
 		self.DMs = self.list_dms() 			
@@ -79,12 +86,14 @@ class Sleek4Slack():
 				   	user    = data['user']		   					   	
 				except KeyError:
 					continue			
+				#ignore the text that gets appended when a file is uploaded
+				if "uploaded a file" in text: continue				
 				context = {"user_id":user, "ts":ts, 
 				   		   "channel":channel}		
 				reply=None			
 		 		if 'bot_id' in data and text == "pong":			 		
 					#this message was posted by pong (as a bot)
-					#thus, changing back to user reponding to survey			 		
+					#thus, changing back to user reponding to survey		
 			 		self.run_interactive_survey(data) 		
 				#only react to messages directed at the bot
 				elif self.at_bot in text or channel in self.DMs \
@@ -134,13 +143,17 @@ class Sleek4Slack():
 		user_id   = data["attachments"][0]["author_name"]
 		thread_ts = data["thread_ts"]
 		text      = data["attachments"][0]["text"]
-		channel   = self.user2DM[user_id]
-		try:
-			this_survey = self.sleek.ongoing_surveys[user_id]
-		except KeyError: #there is no survey going for this user				
-				return
+		channel   = self.user2DM[user_id]		
  		arg1, arg2 = text.split()	 		
- 		if arg2 == "[sleek:ok]":
+ 		
+ 		if arg2 == "[pong:ok]":
+ 			try:
+				survey_id = self.sleek.ongoing_surveys[user_id].id
+			except KeyError:
+				#there is no survey going for this user			
+				thread_ts = data["thread_ts"]		
+				self.deleteMessage(channel, thread_ts)
+				return					
  			# survey_thread, answer_thread, notes_thread = self.open_responses[user_id]
  			survey_thread = self.open_responses[user_id]["survey_thread"]
  			answer_thread = self.open_responses[user_id]["answer_thread"]
@@ -153,13 +166,21 @@ class Sleek4Slack():
  			try:
  				self.sleek.ongoing_surveys[user_id].save()
  				self.updateMessage(channel, 
-							    out.ANSWERS_SAVE_OK,
+							    out.ANSWERS_SAVE_OK.format(survey_id.title()),
 							    answer_thread)
  			except RuntimeError as e:
  				#replace survey with message
  				self.postMessage(channel, 
 								e.message)
-		elif arg2 == "[sleek:cancel]":
+		
+		elif arg2 == "[pong:cancel]":
+			try:
+				survey_id = self.sleek.ongoing_surveys[user_id].id
+			except KeyError:
+				#there is no survey going for this user	
+				thread_ts = data["thread_ts"]		
+				self.deleteMessage(channel, thread_ts)
+				return					
  			self.sleek.cancel_survey(user_id)
  			#update UI
  			try: #there are already some answers 				
@@ -176,8 +197,14 @@ class Sleek4Slack():
 				survey_thread = thread_ts
 			self.deleteMessage(channel, survey_thread)
 			self.postMessage(channel, 
-		 				    out.SURVEY_CANCELED)
-		elif arg2 == "[sleek:notes]":
+		 				    out.SURVEY_CANCELED.format(survey_id.title()))
+		
+		elif arg2 == "[pong:notes]":
+			if not user_id in self.sleek.ongoing_surveys:				
+				#there is no survey going for this user		
+				thread_ts = data["thread_ts"]		
+				self.deleteMessage(channel, thread_ts)	
+				return		
 			# survey_thread, answer_thread, _ = self.open_responses[user_id]
 			survey_thread = self.open_responses[user_id]["survey_thread"]
  			answer_thread = self.open_responses[user_id]["answer_thread"]
@@ -191,8 +218,59 @@ class Sleek4Slack():
  				#keep the post id for the notes
  				# self.open_responses[user_id][2] = ts
  				self.open_responses[user_id]["notes_thread"] = resp["ts"]
- 				
- 		else: #this an answer 			
+ 		
+ 		elif arg1 == "[pong:survey]":
+ 			context = {"user_id":user_id,
+			   		   "channel":channel}
+			#set_trace()					
+ 			cmd = "survey "+arg2 #arg2 is the survey id
+ 			if user_id in self.sleek.ongoing_surveys:
+				#there is an ongoing survey
+				mins_delay = 2
+				delta = timedelta(minutes=mins_delay)			
+				remind_at = (datetime.now() + delta).time()
+				nice_time = remind_at.strftime('%I:%M%p')
+				self.sleek.set_reminder(user_id, arg2, nice_time)
+				reminder_thread = data["thread_ts"]
+				self.updateMessage(channel, 
+							    out.USER_BUSY.format(mins_delay),
+							    reminder_thread)				
+			else:
+	 			reply = self.sleek.read(cmd, context)
+	 			try:
+	 				reminder_thread = self.open_responses[user_id]["reminder_thread"]
+				except KeyError:
+					reminder_thread = data["thread_ts"]
+					self.deleteMessage(channel, reminder_thread)
+					return 
+	 			self.updateMessage(channel, 
+								    u":ok_hand:",
+								    reminder_thread)
+	 			r = reply[-1] 
+	 			self.postMessage(channel, r)
+ 		
+ 		elif arg1 == "[pong:snooze]": 			 			
+			snooze, survey_id = arg2.split("@")  	
+			delta = timedelta(minutes=int(snooze))			
+			remind_at = (datetime.now() + delta).time()
+			nice_time = remind_at.strftime('%I:%M%p')
+			self.sleek.set_reminder(user_id, survey_id, nice_time)
+ 			reminder_thread = data["thread_ts"]
+ 			#self.open_responses[user_id]["reminder_thread"]
+ 			txt = out.SURVEY_SNOOZE.format(survey_id.title(),nice_time)
+ 			self.updateMessage(channel, txt, reminder_thread)
+ 		
+ 		elif arg1 == "[pong:skip]":
+ 			reminder_thread = data["thread_ts"]
+ 			#self.open_responses[user_id]["reminder_thread"]
+ 			txt = u"OK :disappointed_relieved:"
+ 			self.updateMessage(channel, txt, reminder_thread)
+ 		
+ 		else: #this an answer 	
+	 		if not user_id in self.sleek.ongoing_surveys:				
+				#there is no survey going for this user			
+				return		
+			this_survey = self.sleek.ongoing_surveys[user_id]
 	 		q_id, ans = arg1, arg2
 	 		this_survey.put_answer(q_id, int(ans))
 			rep = self.sleek.get_survey_answers(user_id)
@@ -240,10 +318,24 @@ class Sleek4Slack():
 		self.postMessage(new_dm, u"> *you said*: _{}_\n\n".format(text))
 		context["channel"] = new_dm
 
-		return context
+		return context	
+
+	# def remind_user(self, user_id, survey_id, period): 		
+	# 	self.postMessage(user_id, out.REMIND_SURVEY.format(survey_id,period))
 	
-	def remind_user(self, user_id, survey_id, period):
-		self.postMessage(user_id, out.REMIND_SURVEY.format(survey_id,period))
+	def remind_user(self, user_id, survey_id, period): 		
+		reminder = SleekMsg(out.REMIND_SURVEY.format(survey_id,period),
+							msg_type="reminder")
+		if user_id in self.sleek.ongoing_surveys:
+			reminder.set_field("user_busy",True)
+		else:
+			reminder.set_field("user_id",user_id)
+			reminder.set_field("survey_id", survey_id)		
+			post = self.postMessage(user_id, reminder)
+		if not user_id in self.sleek.ongoing_surveys:
+			self.open_responses[user_id] = {"reminder_thread":post["ts"]}
+
+
 
 	#################################################################
 	# SLACK API METHODS
@@ -291,22 +383,24 @@ class Sleek4Slack():
 		else:
 			return resp["channel"]["id"]
 
-	def postMessage(self, channel, message, thread_ts=None, attach=None):		
-			
+	def postMessage(self, channel, message, thread_ts=None, attach=None):					
 		if type(message) == unicode:
 			resp = self.__post(channel, message, thread_ts, attach)
 		elif type(message) == SleekMsg:
-			message.set_field("interactive", self.interactive)		
-			if message.get_field("user_id") is not None:
-				message.set_field("api_token", self.slack_client.token)
-			fm = fancier.format(message)		
-			if type(fm) == unicode:
-				resp = self.__post(channel, fm, thread_ts=thread_ts)
-			elif type(fm) == list: #attachments are lists of dicts
-				resp = self.__post(channel, message=" ", 
-									  thread_ts=thread_ts, attach=fm)
+			if message.type == "plot":
+				resp = self.post_plot(channel, message)
 			else:
-				raise NotImplementedError			
+				message.set_field("interactive", self.interactive)		
+				if message.get_field("user_id") is not None:
+					message.set_field("api_token", self.slack_client.token)
+				fm = fancier.format(message)		
+				if type(fm) == unicode:
+					resp = self.__post(channel, fm, thread_ts=thread_ts)
+				elif type(fm) == list: #attachments are lists of dicts
+					resp = self.__post(channel, message=" ", 
+										  thread_ts=thread_ts, attach=fm)
+				else:
+					raise NotImplementedError			
 		else:
 			raise NotImplementedError
 
@@ -382,4 +476,15 @@ class Sleek4Slack():
 			return None
 		else:
 			return resp
-	
+
+	def post_plot(self, channel, message, keep_file=False):
+		plot_path = message.get_field("plot_path")
+		survey_id = message.get_field("survey_id")
+		with open(plot_path, 'rb') as f:
+			resp = self.slack_client.api_call('files.upload', 
+    									channels=channel, 
+    									filename=survey_id, 
+    									file=io.BytesIO(f.read()))
+			print resp
+		if not keep_file: os.remove(plot_path)
+		return resp

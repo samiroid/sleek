@@ -1,1 +1,1 @@
-from slack import Sleek4Slack
+from src import Sleek4Slack

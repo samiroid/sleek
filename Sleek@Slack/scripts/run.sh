@@ -6,8 +6,8 @@ else
 	
 	else
 		CONFIG=$1	
-		echo "READ CONF FROM " $CONFIG 
-		echo "CONNECTING"
+		echo "read config @" $CONFIG 
+		echo "** connecting **"
 		#run
 		python app.py -cfg $CONFIG -connect -dbg  
 	fi

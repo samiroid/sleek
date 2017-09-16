@@ -11,7 +11,7 @@ import uuid
 
 try:
 	from ipdb import set_trace
-except ImportError:
+except:
 	from pdb import set_trace
 
 class Backend(object):
@@ -260,8 +260,13 @@ class Backend(object):
 		survey_table = "survey_{}".format(survey_id)
 		if not self.__table_exists(survey_table):
 			raise RuntimeError("survey {} does not exist".format(survey_id))
-		sql = '''SELECT * FROM {} WHERE user_id=? order by ts DESC'''.format(survey_table)
-		return self.__get(sql,(user_id,))
+		if user_id is not None:
+			sql = '''SELECT * FROM {} WHERE user_id=? order by ts DESC'''.format(survey_table)
+			return self.__get(sql,(user_id,))
+		else:
+			sql = '''SELECT * FROM {} order by ts ASC'''.format(survey_table)
+			return self.__get(sql)
+		
 
 	def get_notes(self, user_id, survey_id):
 		"""
@@ -350,3 +355,4 @@ class Backend(object):
 				ignored.append(abs_path)	
 		if len(ignored) > 0:
 			print "[ignored the files: {}]".format(repr(ignored))
+	
