@@ -46,6 +46,12 @@ def format(msg):
 		notes = msg.get_field("notes")
 		user_id = msg.get_field("user_id")
 		return attach_answer(ans, user_id, notes=notes)
+	elif msg.type == "status":
+		user_id = msg.get_field("user_id")
+		survey_id = msg.get_field("survey_id")
+		api_token = msg.get_field("api_token")
+		callback_id = user_id+"@"+api_token
+		return see_plot(user_id, survey_id, callback_id)
 	else:	 
 		return msg.text
 
@@ -111,6 +117,33 @@ def get_reminder(user_id, survey_id, callback_id, msg, user_busy=False):
 	attach = [{ "fallback": "reponse",
         		 "color": COLOR_1,		        		          		 
         		 "pretext": msg,
+        		 # u"title":"{} survey".format(survey_id.upper()),
+        		 "callback_id":callback_id,        	     
+        	     "text":" ",
+        	     "actions": actions,        	     
+        	     "mrkdwn_in": ["text","pretext","title","fields"]
+		 				}]
+	return attach
+
+def see_plot(user_id, survey_id, callback_id):	
+	actions = [
+				 {"name": "[pong:plot]",
+				 "text": "OK",
+				 "type": "button",	
+				 "style": "primary",	        
+				 "value": survey_id.lower()
+				 },
+	             {"name": "[pong:skip]",
+				 "text": "Nah",
+				 "type": "button",	
+				 "style": "danger",	        
+				 "value": survey_id.lower()
+				 },	             
+ 			  ]
+ 	
+	attach = [{ "fallback": "reponse",
+        		 "color": COLOR_1,		        		          		 
+        		 "pretext": u"Do you want to see how you have been doing?",
         		 # u"title":"{} survey".format(survey_id.upper()),
         		 "callback_id":callback_id,        	     
         	     "text":" ",

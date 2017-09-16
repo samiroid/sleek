@@ -16,12 +16,12 @@ class ChatBot(object):
 	
 	def __init__(self, cfg=None):		
 
-		self.__greets = None
-		self.__acks = None
-		self.__nacks = None
-		self.__help = None
+		self.greets = None
+		self.acks = None
+		self.nacks = None
+		self.help = None
 		self.__announce = None
-		self.__oops = None
+		self.oops = None
 
 		if cfg is None:			
 			self.__load_cfg(ChatBot.__default_cfg)
@@ -36,24 +36,24 @@ class ChatBot(object):
 
 		# values not present in the config dictionary will be replaced with default values 
 		try:
-			self.__greets = cfg["greet"]
+			self.greets = cfg["greet"]
 		except KeyError:
-			self.__greets = ChatBot.__default_cfg["greet"]
+			self.greets = ChatBot.__default_cfg["greet"]
 
 		try:
-			self.__acks = cfg["ack"]
+			self.acks = cfg["ack"]
 		except KeyError:
-			self.__acks = ChatBot.__default_cfg["ack"]
+			self.acks = ChatBot.__default_cfg["ack"]
 		
 		try:
-			self.__nacks = cfg["nack"]
+			self.nacks = cfg["nack"]
 		except KeyError:
-			self.__nacks = ChatBot.__default_cfg["nack"]
+			self.nacks = ChatBot.__default_cfg["nack"]
 
 		try:
-			self.__help = cfg["help"]
+			self.help = cfg["help"]
 		except KeyError:
-			self.__help = ChatBot.__default_cfg["help"]
+			self.help = ChatBot.__default_cfg["help"]
 
 		try:
 			self.__announce = cfg["announce"]
@@ -61,9 +61,9 @@ class ChatBot(object):
 			self.__announce = ChatBot.__default_cfg["announce"]
 
 		try:
-			self.__oops = cfg["oops"]
+			self.oops = cfg["oops"]
 		except KeyError:
-			self.__oops = ChatBot.__default_cfg["oops"]
+			self.oops = ChatBot.__default_cfg["oops"]
 
 	def __get_rand(self, obj):
 		"""
@@ -73,28 +73,28 @@ class ChatBot(object):
 		return obj[r]		
 
 	def ack(self):
-		return self.__get_rand(self.__acks)
+		return self.__get_rand(self.acks)
 
 	def announce(self, name):
 		return self.__announce.format(name)
 
 	def greet(self):
-		return self.__get_rand(self.__greets)
+		return self.__get_rand(self.greets)
 
-	def help(self):
-		return self.__help
+	def get_help(self):
+		return self.help
 
 	def nack(self):
-		return self.__get_rand(self.__nacks)
+		return self.__get_rand(self.nacks)
 
-	def oops(self):
-		return self.__get_rand(self.__oops)
+	def get_oops(self):
+		return self.__get_rand(self.oops)
 
 	def chat(self, tokens, context):				
-		if tokens[0] in self.__greets:		
+		if tokens[0] in self.greets:		
 			return [self.greet()]
 		elif "help" in tokens:
-			return [self.help()]
+			return [self.get_help()]
 		else:
 			return [self.nack()]
 			

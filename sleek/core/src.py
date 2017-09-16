@@ -2,6 +2,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from collections import defaultdict
 from datetime import datetime
 import json
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import os
 import pandas as pd
@@ -254,18 +256,18 @@ class Sleek(ChatBot):
 	def cmd_answers_report(self, tokens, context):	
 		#check params
 		if len(tokens) < 2:
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 			        SleekMsg(out.MISSING_PARAMS),
 			        SleekMsg(Sleek.__help_dict["report"][0])]
 		survey_id = tokens[1]
 		user_id = context["user_id"]
 		#check if survey exists
 		if not survey_id in self.all_surveys:
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 			        SleekMsg(out.SURVEY_UNKNOWN.format(survey_id.title()))]
 		#check if user has subscribed this survey
 		if survey_id not in self.users[user_id].my_surveys:
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 					SleekMsg(out.SURVEY_NOT_SUBSCRIBED.format(survey_id.title()))]
 		data = self.backend.get_report(user_id, survey_id)
 		if len(data) > 0:
@@ -277,24 +279,24 @@ class Sleek(ChatBot):
 			m.set_field("data", data)
 			return [SleekMsg(self.ack()), m]
 		else:
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 				    SleekMsg(out.REPORT_EMPTY.format(survey_id.title()))]
 
 	def cmd_answers_plot(self, tokens, context):	
 		#check params
 		if len(tokens) < 2:
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 			        SleekMsg(out.MISSING_PARAMS),
 			        SleekMsg(Sleek.__help_dict["report"][0])]
 		survey_id = tokens[1]
 		user_id = context["user_id"]
 		#check if survey exists
 		if not survey_id in self.all_surveys:
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 			        SleekMsg(out.SURVEY_UNKNOWN.format(survey_id.title()))]
 		#check if user has subscribed this survey
 		if survey_id not in self.users[user_id].my_surveys:
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 					SleekMsg(out.SURVEY_NOT_SUBSCRIBED.format(survey_id.title()))]
 		data = self.backend.get_report(user_id, survey_id)
 		if len(data) > 0:
@@ -307,24 +309,24 @@ class Sleek(ChatBot):
 			m.set_field("survey_id", survey_id)			
 			return [SleekMsg(self.ack()), m]
 		else:
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 				    SleekMsg(out.REPORT_EMPTY.format(survey_id.title()))]
 
 	def cmd_answers_teamplot(self, tokens, context):	
 		#check params
 		if len(tokens) < 2:
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 			        SleekMsg(out.MISSING_PARAMS),
 			        SleekMsg(Sleek.__help_dict["report"][0])]
 		survey_id = tokens[1]
 		user_id = context["user_id"]
 		#check if survey exists
 		if not survey_id in self.all_surveys:
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 			        SleekMsg(out.SURVEY_UNKNOWN.format(survey_id.title()))]
 		#check if user has subscribed this survey
 		if survey_id not in self.users[user_id].my_surveys:
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 					SleekMsg(out.SURVEY_NOT_SUBSCRIBED.format(survey_id.title()))]
 		data = self.backend.get_report(None, survey_id)
 		if len(data) > 0:
@@ -337,7 +339,7 @@ class Sleek(ChatBot):
 			m.set_field("survey_id", survey_id)			
 			return [SleekMsg(self.ack()), m]
 		else:
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 				    SleekMsg(out.REPORT_EMPTY.format(survey_id.title()))]
 
 
@@ -350,18 +352,18 @@ class Sleek(ChatBot):
 		"""	
 		#check params
 		if len(tokens) < 2:
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 			        SleekMsg(out.MISSING_PARAMS),
 			        SleekMsg(Sleek.__help_dict["delete"][0])]
 		survey_id = tokens[1]
 		user_id = context["user_id"]
 		#check if survey exists									
 		if not survey_id in self.all_surveys:			
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 			 		SleekMsg(out.SURVEY_UNKNOWN.format(survey_id.title()))]
 		#check if user has subscribed this survey
 		if not survey_id in self.users[user_id].my_surveys:
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 					SleekMsg(out.SURVEY_NOT_SUBSCRIBED.format(survey_id.title()))]
 		try:
 			self.backend.delete_answers(user_id, survey_id)
@@ -370,7 +372,7 @@ class Sleek(ChatBot):
 		except RuntimeError as r:
 			e  = out.ANSWERS_DELETE_FAIL.format(survey_id.title())
 			e += "\n[err: {}]".format(str(r))
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 					SleekMsg(e)]
 				
 	def cmd_survey_join(self, tokens, context):
@@ -380,24 +382,24 @@ class Sleek(ChatBot):
 		"""		
 		#check params
 		if len(tokens) < 3: 	
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 					SleekMsg(out.MISSING_PARAMS),
 					SleekMsg(Sleek.__help_dict["join"][0])]
 		survey_id = tokens[1]
 		user_id = context["user_id"]					
 		#check if survey exists
 		if not survey_id in self.all_surveys:
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 					SleekMsg(out.SURVEY_UNKNOWN.format(survey_id.title()))]
 		#check if user has subscribed this survey
 		if survey_id in self.users[user_id].my_surveys:
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 					SleekMsg(out.SURVEY_IS_SUBSCRIBED.format(survey_id.title()))]
 		#first validate reminder schedules
 		try:
 			am_reminder, pm_reminder = self.parse_reminder_times(tokens[2:])
 		except ValueError as e:
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 					SleekMsg(e.message)]
 		#join survey
 		try:
@@ -411,7 +413,7 @@ class Sleek(ChatBot):
 		except RuntimeError as r:
 			e  = out.SURVEY_JOIN_FAIL.format(survey_id.title())
 			e += "\n[err: {}]".format(str(r))
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 					SleekMsg(e)]
 
 	def cmd_survey_leave(self, tokens, context):
@@ -423,18 +425,18 @@ class Sleek(ChatBot):
 		"""
 		#check params
 		if len(tokens) < 2: 			
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 					SleekMsg(out.MISSING_PARAMS),
 					SleekMsg(Sleek.__help_dict["leave"][0])]
 		survey_id = tokens[1]
 		user_id = context["user_id"]
 		#check if survey exists							
 		if not survey_id in self.all_surveys:
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 					SleekMsg(out.SURVEY_UNKNOWN.format(survey_id.title()))]
 		#check if user has subscribed this survey
 		if not survey_id in self.users[user_id].my_surveys:
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 					SleekMsg(out.SURVEY_NOT_SUBSCRIBED.format(survey_id.title()))]
 		try:
 			self.users[user_id].survey_leave(survey_id)
@@ -443,7 +445,7 @@ class Sleek(ChatBot):
 		except RuntimeError as r:
 			e  = out.SURVEY_LEAVE_FAIL.format(survey_id.title())
 			e += "\n[err: {}]".format(str(r))
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 				    SleekMsg(e)]
 		
 	def cmd_survey_list(self, tokens, context):
@@ -464,18 +466,18 @@ class Sleek(ChatBot):
 	def cmd_survey_take(self, tokens, context):
 		#check params
 		if len(tokens) < 2: 			
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 					SleekMsg(out.MISSING_PARAMS),
 					SleekMsg(Sleek.__help_dict["leave"][0]) ]
 		survey_id = tokens[1]
 		user_id = context["user_id"]					
 		#check if survey exists
 		if not survey_id in self.all_surveys:
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 					SleekMsg(out.SURVEY_UNKNOWN.format(survey_id.title()))]
 		#check if user has subscribed this survey
 		if not survey_id in self.users[user_id].my_surveys:
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 					SleekMsg(out.SURVEY_NOT_SUBSCRIBED.format(survey_id.title()))]
 		#register new survey		
 		survey = self.all_surveys[survey_id]
@@ -493,23 +495,23 @@ class Sleek(ChatBot):
 		"""		
 		#check params
 		if len(tokens) < 3: 			
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 					SleekMsg(out.MISSING_PARAMS),
 			        SleekMsg(Sleek.__help_dict["reminder"][0]) ]
 		survey_id = tokens[1]
 		user_id = context["user_id"]
 		#check if survey exists
 		if not survey_id in self.all_surveys:
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 					SleekMsg(out.SURVEY_UNKNOWN.format(survey_id.title()))]
 		#check if user has subscribed this survey
 		if not survey_id in self.users[user_id].my_surveys:
-			return [SleekMsg(self.oops()),
+			return [SleekMsg(self.get_oops()),
 					SleekMsg(out.SURVEY_NOT_SUBSCRIBED.format(survey_id.title()))]
 		try:
 			am_reminder, pm_reminder = self.parse_reminder_times(tokens[2:])
 		except ValueError as e:
-			return [SleekMsg(self.oops()), 
+			return [SleekMsg(self.get_oops()), 
 					SleekMsg(e.message)]
 		self.users[user_id].reminder_save(survey_id, am_reminder, pm_reminder)
 		#choose a return message
@@ -521,7 +523,7 @@ class Sleek(ChatBot):
 		elif pm_reminder is not None:
 			txt = out.REMINDER_OK.format(survey_id.title(), pm_reminder)
 		else:
-			return [SleekMsg(self.oops()), 
+			return [SleekMsg(self.get_oops()), 
 				    SleekMsg(out.REMINDER_FAIL.format(survey_id))]
 		 
 	 	return [SleekMsg(self.ack()),
@@ -563,6 +565,11 @@ class Sleek(ChatBot):
 			#---- PASS IT TO THE PARENT CLASS (maybe it knows how to handle this input)
 			else: 
 				replies = ChatBot.chat(self, tokens, context)
+				if replies[0] in self.greets:
+					replies.append(out.GREET_USER)
+					replies.append(out.GIVE_HOPE)
+				elif replies[0] in self.nacks:
+					replies.append(out.GIVE_HOPE)
 				replies = [SleekMsg(reply) for reply in replies]
 				return replies
 	
@@ -588,7 +595,7 @@ class Sleek(ChatBot):
 				return [SleekMsg(self.ack()),
 						SleekMsg(out.ANSWERS_SAVE_OK)]
 			except RuntimeError as e:
-				return [SleekMsg(self.oops()), 
+				return [SleekMsg(self.get_oops()), 
 						SleekMsg(e.message)]
 		# --- PARSE ANSWERS TO SURVEY ---
 		#if a note was started, then this is a new note

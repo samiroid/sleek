@@ -168,11 +168,29 @@ class Sleek4Slack():
  				self.updateMessage(channel, 
 							    out.ANSWERS_SAVE_OK.format(survey_id.title()),
 							    answer_thread)
+ 				sm = SleekMsg(u"Do you want to see how you have been doing?",
+ 							  msg_type="status")
+ 				sm.set_field("user_id",user_id)
+ 				sm.set_field("survey_id",survey_id)
+ 				self.postMessage(channel, sm)
  			except RuntimeError as e:
  				#replace survey with message
  				self.postMessage(channel, 
 								e.message)
-		
+		elif arg1 == "[pong:plot]":
+			context = {"user_id":user_id,
+			   		   "channel":channel}
+			cmd = "plot "+arg2
+ 			reply = self.sleek.read(cmd, context) 			
+			reminder_thread = data["thread_ts"]						
+ 			self.updateMessage(channel, 
+							    u":ok_hand:",
+							    reminder_thread)
+ 			r = reply[-1] 
+ 			self.postMessage(channel, r)
+
+			#self.postMessage(channel, "Aight my dude")
+
 		elif arg2 == "[pong:cancel]":
 			try:
 				survey_id = self.sleek.ongoing_surveys[user_id].id
@@ -310,8 +328,8 @@ class Sleek4Slack():
 			username = self.sleek.users[user_id].username
 		except KeyError:
 			username=""
-		#greet user and move conversation to a private chat
-		self.postMessage(channel, out.GREET_USER.format(self.sleek.greet(), username))		
+		#invite user to a private DM
+		self.postMessage(channel, out.INVITE_USER.format(self.sleek.greet(), username))		
 		#say hi on the new DM	
 		hello = u"Hello! I prefer talking in private :slightly_smiling_face:"	
 		self.postMessage(new_dm, hello)

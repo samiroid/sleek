@@ -2,8 +2,9 @@ MISSING_PARAMS = u"I think you forgot some parameters :thinking_face:"
 OK = u"OK :+1:"
 PLEASE_SUBSCRIBE = u"If you want to participate in this survey, use the `join` command to subscribe"
 INVALID_TIME = u"Invalid time: `{}`"
-GREET_USER = u":wave: {} {} ! Let's talk in private :+1:"
-
+INVITE_USER = u":wave: {} {} ! Let's talk in private :+1:"
+GREET_USER = u"Try typing `list` to see the surveys you subscribed. If you haven't yet, use the command `join SURVEY_ID` to join a few :hugging_face:"
+GIVE_HOPE = u"You can always type `help` to see all the available commands  :relaxed:"
 #answers
 ANSWERS_TOO_FEW = u"Hey...I think you forgot to enter some answers. I was expecting *{}* answers but only got *{}*."
 ANSWERS_TOO_MANY = u"Whoa! You entered too many answers. I was expecting *{}* answers but you entered *{}*."
