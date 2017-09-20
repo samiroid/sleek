@@ -35,12 +35,8 @@ class Sleek4Slack():
 	#################################################################	
 	def connect(self, api_token):
 		self.slack_client = SlackClient(api_token)				
-		slackers = self.list_slackers()	
-		me = "U5TCJ682Z"
-		#self.remind_user(me, "sleep", "AM")	
-		self.sleek.load_users(slackers)
-		#path = "DATA/happy.jpg"
-		#self.uploadFile(me, path)
+		slackers = self.list_slackers()			
+		self.sleek.load_users(slackers)		
 		self.at_bot = "<@{}>".format(slackers[self.bot_name]).lower() 		
 		#open direct messages		
 		self.DMs = self.list_dms() 			
@@ -146,6 +142,7 @@ class Sleek4Slack():
 		channel   = self.user2DM[user_id]		
  		arg1, arg2 = text.split()	 		
  		
+ 		# ====== OK ======
  		if arg2 == "[pong:ok]":
  			try:
 				survey_id = self.sleek.ongoing_surveys[user_id].id
@@ -154,14 +151,13 @@ class Sleek4Slack():
 				thread_ts = data["thread_ts"]		
 				self.deleteMessage(channel, thread_ts)
 				return					
- 			# survey_thread, answer_thread, notes_thread = self.open_responses[user_id]
  			survey_thread = self.open_responses[user_id]["survey_thread"]
  			answer_thread = self.open_responses[user_id]["answer_thread"]
  			notes_thread  = self.open_responses[user_id]["notes_thread"]
  			del self.open_responses[user_id]
- 			#delete answers 				
-			self.deleteMessage(channel, notes_thread)			
+ 			#delete answers 							
 			self.deleteMessage(channel, survey_thread)
+			self.deleteMessage(channel, notes_thread)			
 			# self.deleteMessage(channel, answer_thread)
  			try:
  				self.sleek.ongoing_surveys[user_id].save()
@@ -177,6 +173,8 @@ class Sleek4Slack():
  				#replace survey with message
  				self.postMessage(channel, 
 								e.message)
+		
+		# ====== PLOT ======
 		elif arg1 == "[pong:plot]":
 			context = {"user_id":user_id,
 			   		   "channel":channel}
@@ -189,8 +187,7 @@ class Sleek4Slack():
  			r = reply[-1] 
  			self.postMessage(channel, r)
 
-			#self.postMessage(channel, "Aight my dude")
-
+ 		# ====== CANCEL ======
 		elif arg2 == "[pong:cancel]":
 			try:
 				survey_id = self.sleek.ongoing_surveys[user_id].id
@@ -200,77 +197,70 @@ class Sleek4Slack():
 				self.deleteMessage(channel, thread_ts)
 				return					
  			self.sleek.cancel_survey(user_id)
- 			#update UI
- 			try: #there are already some answers 				
- 				# survey_thread, ans_thread, notes_thread = self.open_responses[user_id]
- 				survey_thread = self.open_responses[user_id]["survey_thread"]
- 				answer_thread = self.open_responses[user_id]["answer_thread"]
- 				notes_thread  = self.open_responses[user_id]["notes_thread"]
-				del self.open_responses[user_id]
-				#delete answers 				 				
-				if notes_thread is not None:
- 					self.deleteMessage(channel, notes_thread)
-				self.deleteMessage(channel, answer_thread)
-			except KeyError: 
-				survey_thread = thread_ts
-			self.deleteMessage(channel, survey_thread)
-			self.postMessage(channel, 
-		 				    out.SURVEY_CANCELED.format(survey_id.title()))
+ 			#update UI 			
+			survey_thread = self.open_responses[user_id]["survey_thread"]
+			answer_thread = self.open_responses[user_id]["answer_thread"]
+			notes_thread  = self.open_responses[user_id]["notes_thread"]
+			del self.open_responses[user_id]
+			#try to remove notes
+			if notes_thread is not None:
+				self.deleteMessage(channel, notes_thread)
+			#remove survey
+			self.deleteMessage(channel, survey_thread)							
+			#remove answers
+			self.updateMessage(channel, 
+		 				       out.SURVEY_CANCELED.format(survey_id.title()),
+		 				       answer_thread)
 		
+		# ====== NOTES ======
 		elif arg2 == "[pong:notes]":
 			if not user_id in self.sleek.ongoing_surveys:				
 				#there is no survey going for this user		
 				thread_ts = data["thread_ts"]		
 				self.deleteMessage(channel, thread_ts)	
 				return		
-			# survey_thread, answer_thread, _ = self.open_responses[user_id]
 			survey_thread = self.open_responses[user_id]["survey_thread"]
- 			answer_thread = self.open_responses[user_id]["answer_thread"]
- 			
+ 			answer_thread = self.open_responses[user_id]["answer_thread"] 			
 			if not self.sleek.ongoing_surveys[user_id].has_open_notes():
  				self.sleek.ongoing_surveys[user_id].put_notes("")
  				resp = self.postMessage(channel, 
  									  out.ANSWERS_ADD_NOTE, 
  									  thread_ts=answer_thread)
  				print "Channel: " + resp["channel"]
- 				#keep the post id for the notes
- 				# self.open_responses[user_id][2] = ts
+ 				#keep the post id for the notes 				
  				self.open_responses[user_id]["notes_thread"] = resp["ts"]
  		
+ 		# ====== SURVEY ======
  		elif arg1 == "[pong:survey]":
  			context = {"user_id":user_id,
 			   		   "channel":channel}
-			#set_trace()					
- 			cmd = "survey "+arg2 #arg2 is the survey id
- 			if user_id in self.sleek.ongoing_surveys:
-				#there is an ongoing survey
-				mins_delay = 2
-				delta = timedelta(minutes=mins_delay)			
-				remind_at = (datetime.now() + delta).time()
-				nice_time = remind_at.strftime('%I:%M%p')
-				self.sleek.set_reminder(user_id, arg2, nice_time)
-				reminder_thread = data["thread_ts"]
-				self.updateMessage(channel, 
-							    out.USER_BUSY.format(mins_delay),
-							    reminder_thread)				
+			#set_trace()		
+			#arg2 is the survey id			
+ 			cmd = "survey "+arg2 
+ 			thread = data["thread_ts"]
+ 			#users can only take on survey at a time
+ 			#if user is in a survey, ask to snooze or skip
+ 			if user_id in self.sleek.ongoing_surveys:				
+ 				self.deleteMessage(channel, thread) 				
+				self.postMessage(channel, out.USER_BUSY)	
+				reminder = SleekMsg(u"*{} survey*".format(arg2.title()), 
+									msg_type="reminder")
+				reminder.set_field("user_id",user_id)
+				reminder.set_field("survey_id", arg2)		
+				reminder.set_field("user_busy",True)
+				self.postMessage(channel, reminder)				
 			else:
-	 			reply = self.sleek.read(cmd, context)
-	 			try:
-	 				reminder_thread = self.open_responses[user_id]["reminder_thread"]
-				except KeyError:
-					reminder_thread = data["thread_ts"]
-					self.deleteMessage(channel, reminder_thread)
-					return 
-	 			self.updateMessage(channel, 
-								    u":ok_hand:",
-								    reminder_thread)
+				self.updateMessage(channel, u":ok_hand:", thread)
+	 			reply = self.sleek.read(cmd, context)	 			
 	 			r = reply[-1] 
-	 			self.postMessage(channel, r)
- 		
+	 			self.postMessage(channel, r) 		
+	 	
+	 	# ====== SNOOZE ======
  		elif arg1 == "[pong:snooze]": 			 			
 			snooze, survey_id = arg2.split("@")  	
 			delta = timedelta(minutes=int(snooze))			
 			remind_at = (datetime.now() + delta).time()
+			# set_trace()
 			nice_time = remind_at.strftime('%I:%M%p')
 			self.sleek.set_reminder(user_id, survey_id, nice_time)
  			reminder_thread = data["thread_ts"]
@@ -284,6 +274,7 @@ class Sleek4Slack():
  			txt = u"OK :disappointed_relieved:"
  			self.updateMessage(channel, txt, reminder_thread)
  		
+ 		# ====== ANSWER ======
  		else: #this an answer 	
 	 		if not user_id in self.sleek.ongoing_surveys:				
 				#there is no survey going for this user			
@@ -337,22 +328,18 @@ class Sleek4Slack():
 		context["channel"] = new_dm
 
 		return context	
-
-	# def remind_user(self, user_id, survey_id, period): 		
-	# 	self.postMessage(user_id, out.REMIND_SURVEY.format(survey_id,period))
 	
-	def remind_user(self, user_id, survey_id, period): 		
+	def remind_user(self, user_id, survey_id, period=""): 	
+		if len(period)>0:
+			period="({})".format(period)	
 		reminder = SleekMsg(out.REMIND_SURVEY.format(survey_id,period),
 							msg_type="reminder")
+		reminder.set_field("user_id",user_id)
+		reminder.set_field("survey_id", survey_id)		
+		#if the user is already taking a survey, only show the options to snooze or skip
 		if user_id in self.sleek.ongoing_surveys:
-			reminder.set_field("user_busy",True)
-		else:
-			reminder.set_field("user_id",user_id)
-			reminder.set_field("survey_id", survey_id)		
-			post = self.postMessage(user_id, reminder)
-		if not user_id in self.sleek.ongoing_surveys:
-			self.open_responses[user_id] = {"reminder_thread":post["ts"]}
-
+			reminder.set_field("user_busy",True)			
+		self.postMessage(user_id, reminder)
 
 
 	#################################################################

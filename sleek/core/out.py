@@ -31,8 +31,8 @@ SURVEY_LEAVE_OK = u"You left the *{}* survey. \nI will keep your data and you ca
 SURVEY_LEAVE_FAIL = u"Could not leave the *{}* survey :cold_sweat:"
 SURVEY_CANCELED = u"*{}* survey canceled :neutral_face:"
 SURVEY_TAKE = u":ok_hand: \nHere is your survey:"
-SURVEY_SNOOZE = u":+1: I will remind you to take the *{}* survey again at {}"
-USER_BUSY = u"Looks like you are in the middle of another survey. I'll ping you again in {} mins"
+SURVEY_SNOOZE = u":+1: I will remind you to take the *{}* survey again at `{}`"
+USER_BUSY = u"Looks like you are in the middle of another survey..."
 
 #reminders
 REMINDER_OK = u"I will remind you to take the *{}* survey  at `{}`"
@@ -40,7 +40,7 @@ REMINDER_OK_2 = u"I will remind you to take the *{}* survey at `{}` and again at
 REMINDER_FAIL = u"Could not set a reminder for the *{}* survey  :cold_sweat:"
 # KL Change: Capitalized C in Could
 REMINDER_REMOVE_OK = u"No more reminders for the *{}* survey :v:"
-REMIND_SURVEY = u"Psst! Don't forget to take the *{}* survey ({}) :wink:"
+REMIND_SURVEY = u"Psst! Don't forget to take the *{}* survey {} :wink:"
 
 #report
 REPORT_FAIL = u"Could not retrieve answers for the *{}* survey :cold_sweat:"
