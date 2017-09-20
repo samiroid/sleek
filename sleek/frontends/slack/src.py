@@ -197,20 +197,27 @@ class Sleek4Slack():
 				self.deleteMessage(channel, thread_ts)
 				return					
  			self.sleek.cancel_survey(user_id)
- 			#update UI 			
-			survey_thread = self.open_responses[user_id]["survey_thread"]
-			answer_thread = self.open_responses[user_id]["answer_thread"]
-			notes_thread  = self.open_responses[user_id]["notes_thread"]
-			del self.open_responses[user_id]
-			#try to remove notes
-			if notes_thread is not None:
-				self.deleteMessage(channel, notes_thread)
-			#remove survey
-			self.deleteMessage(channel, survey_thread)							
-			#remove answers
-			self.updateMessage(channel, 
+ 			#update UI 	
+ 			try:		
+				survey_thread = self.open_responses[user_id]["survey_thread"]
+				answer_thread = self.open_responses[user_id]["answer_thread"]
+				notes_thread  = self.open_responses[user_id]["notes_thread"]
+
+				del self.open_responses[user_id]
+				#try to remove notes
+				if notes_thread is not None:
+					self.deleteMessage(channel, notes_thread)
+				#remove survey
+				self.deleteMessage(channel, survey_thread)							
+				#remove answers
+				self.updateMessage(channel, 
+		 					       out.SURVEY_CANCELED.format(survey_id.title()),
+		 					       answer_thread)
+			except KeyError:
+				survey_thread = data["thread_ts"]
+				self.updateMessage(channel, 
 		 				       out.SURVEY_CANCELED.format(survey_id.title()),
-		 				       answer_thread)
+		 				       survey_thread)
 		
 		# ====== NOTES ======
 		elif arg2 == "[pong:notes]":
