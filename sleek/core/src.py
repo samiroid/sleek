@@ -282,6 +282,19 @@ class Sleek(ChatBot):
 			return [SleekMsg(self.get_oops()),
 				    SleekMsg(out.REPORT_EMPTY.format(survey_id.title()))]
 
+	def cmd_dump(self, tokens, context):
+		self.backend.dump_surveys(self.plots_path)
+		outz = []
+		
+		# #build fancy message
+		for s in self.all_surveys.keys():
+			#outz.append(SleekMsg(u"dumped survey_{}.txt!".format(s)))
+			m = SleekMsg(u"DB_dump", msg_type="plot")
+			m.set_field("plot_path", self.plots_path+"/survey_{}.txt".format(s))			
+			m.set_field("survey_id", s)		
+			outz.append(m)	
+		return outz
+
 	def cmd_answers_plot(self, tokens, context):	
 		#check params
 		if len(tokens) < 2:
@@ -299,6 +312,9 @@ class Sleek(ChatBot):
 			return [SleekMsg(self.get_oops()),
 					SleekMsg(out.SURVEY_NOT_SUBSCRIBED.format(survey_id.title()))]
 		data = self.backend.get_report(user_id, survey_id)
+		if len(data) == 1:
+			return [SleekMsg(self.get_oops()),
+				    SleekMsg(out.FEW_DATA.format(survey_id.title()))]
 		if len(data) > 0:
 			# set_trace()
 			plot_path = plot_report(self.all_surveys[survey_id], data, 
@@ -556,12 +572,10 @@ class Sleek(ChatBot):
 			elif action == "list": return self.cmd_survey_list(tokens, context)		
 			#---- REMIND ----
 			elif action == "reminder": return self.cmd_reminder_add(tokens, context)
-
 			#---- PLOT----
 			elif action == "plot": return self.cmd_answers_plot(tokens, context)
-
 			elif action == "team-plot": return self.cmd_answers_teamplot(tokens, context)
-
+			elif action == "dump_me": return self.cmd_dump(tokens, context)			
 			#---- PASS IT TO THE PARENT CLASS (maybe it knows how to handle this input)
 			else: 
 				replies = ChatBot.chat(self, tokens, context)

@@ -47,3 +47,4 @@ REPORT_FAIL = u"Could not retrieve answers for the *{}* survey :cold_sweat:"
 
 REPORT_EMPTY = u"You have no answers entered for the *{}* survey :neutral_face: "
 NOTES_EMPTY = u"You have no notes saved with the *{}* survey :neutral_face: "
+FEW_DATA = u"You still only have one response on *{}* survey...Try again tomorrow! :relaxed: "

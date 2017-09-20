@@ -492,11 +492,14 @@ class Sleek4Slack():
 	def post_plot(self, channel, message, keep_file=False):
 		plot_path = message.get_field("plot_path")
 		survey_id = message.get_field("survey_id")
-		with open(plot_path, 'rb') as f:
-			resp = self.slack_client.api_call('files.upload', 
-    									channels=channel, 
-    									filename=survey_id, 
-    									file=io.BytesIO(f.read()))
-			print resp
-		if not keep_file: os.remove(plot_path)
-		return resp
+		try:
+			with open(plot_path, 'rb') as f:
+				resp = self.slack_client.api_call('files.upload', 
+	    									channels=channel, 
+	    									filename=survey_id, 
+	    									file=io.BytesIO(f.read()))				
+				return resp
+			if not keep_file: os.remove(plot_path)
+		except IOError:
+			pass
+		
