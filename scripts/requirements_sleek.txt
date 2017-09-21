@@ -3,3 +3,4 @@ apscheduler
 slackclient
 kafka
 pandas
+psycopg2

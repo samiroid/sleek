@@ -59,7 +59,11 @@ if __name__ == "__main__":
 			sys.exit(-1)
 		api_token = get_api_token(api_token_id, api_token_from)
 		print "connecting with token: {} > {} ".format(api_token_id, api_token)
-		sleek4slack = Sleek4Slack(confs)		
+		try:
+			sleek4slack = Sleek4Slack(confs)		
+		except RuntimeError as e:
+			print e
+			sys.exit(-1)
 		sleek4slack.connect(api_token)						
 		if args.greet_at is not None:
 			sleek4slack.greet_channel(args.greet_at)		

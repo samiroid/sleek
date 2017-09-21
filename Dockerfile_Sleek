@@ -1,9 +1,15 @@
 ## SLEEK@SLACK DOCKERFILE
 FROM python:2.7.13-slim
 
+# Install pip, Python and matplotlib required libraries
+RUN apt-get update && apt-get install -y git python python-dev python-pip \
+    libxft-dev libfreetype6 libfreetype6-dev
+
+COPY scripts/requirements_sleek.txt requirements.txt
+RUN pip install -r requirements.txt
 WORKDIR /SleekBots/
 ADD . /SleekBots
-RUN pip install -r scripts/requirements_sleek.txt
+#RUN pip install -r scripts/requirements_sleek.txt
 WORKDIR /SleekBots/Sleek@Slack
 ARG TOKEN
 # Define environment variable

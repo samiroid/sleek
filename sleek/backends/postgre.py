@@ -28,28 +28,37 @@ class PostgreBackend(object):
 		host, port = dbconfs["host"].split(":")
 		if port is None:
 			port = DEFAULT_PORT
+		# dbhome = dbconfs["dbhome"]
 		dbname = dbconfs["dbname"]
 		dbuser = dbconfs["user"]
 		dbpass = dbconfs["pass"]				
 		self.connstr = connstr.format(dbname,dbuser,dbpass,host,port)
 
+		try:
+			conn = psycopg2.connect(self.connstr)
+			conn.close()
+		except psycopg2.OperationalError as e:
+			#connection failed
+			raise RuntimeError("Could not establish connection: {}".format(e))
+
 		if init:
-			drop_db = "DROP DATABASE IF EXISTS {0};"
-			new_db = "CREATE DATABASE {0};"
-			grants = "GRANT ALL PRIVILEGES ON DATABASE {0} TO {1};"
-		  	db = psycopg2.connect(connstr.format(DEFAULT_DB,
-		  										dbuser,
-		  										dbpass,
-		  										host,
-		  										port))
-		  	db.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
-		  	cursor = db.cursor()	  		
-		  	cursor.execute(drop_db.format(dbname))
-	  		cursor.execute(new_db.format(dbname))	
-			cursor.execute(grants.format(dbname, dbuser))		
-	  		cursor.close()
-	  		db.close()	  		
+			# drop_db = "DROP DATABASE IF EXISTS {0};"
+			# new_db = "CREATE DATABASE {0};"
+			# grants = "GRANT ALL PRIVILEGES ON DATABASE {0} TO {1};"
+		 #  	db = psycopg2.connect(connstr.format(dbhome,
+		 #  										dbuser,
+		 #  										dbpass,
+		 #  										host,
+		 #  										port))
+		 #  	db.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+		 #  	cursor = db.cursor()	  		
+		 #  	cursor.execute(drop_db.format(dbname))
+	  # 		cursor.execute(new_db.format(dbname))	
+			# cursor.execute(grants.format(dbname, dbuser))		
+	  # 		cursor.close()
+	  # 		db.close()	  		
 			self.__create_DB()
+		#test connection
 		
 		
 	#################################################################
@@ -157,7 +166,7 @@ class PostgreBackend(object):
 	# SURVEY METHODS
 	#################################################################
 
-	def create_survey(self, survey):
+	def create_survey(self, survey):		
 		table_name = "survey_"+survey["id"]	
 		fields = ["user_id","ts"] + [q["q_id"] for q in survey["questions"] ] + \
 				 ["notes"]
@@ -166,12 +175,16 @@ class PostgreBackend(object):
 			with psycopg2.connect(self.connstr) as db:
   				with db.cursor() as cursor:						
 					sql_fields = 'ID TEXT PRIMARY KEY, ' + ' TEXT, '.join(fields) + ' TEXT' 
-				 	create = ''' CREATE TABLE {}({}) '''.format(table_name, sql_fields)
-					#create table		
-					cursor.execute(create)				
-			db.close()
-		except psycopg2.IntegrityError: 
+				 	create = ''' CREATE TABLE {}({}) '''.format(table_name, sql_fields)									
+					cursor.execute(create)		
+		except psycopg2.IntegrityError:			
 			raise RuntimeError("survey {} already exists".format(survey["id"].upper()))
+		except psycopg2.ProgrammingError:						
+			with psycopg2.connect(self.connstr) as db:
+  				with db.cursor() as cursor:						
+					truncate = ''' TRUNCATE TABLE {}'''.format(table_name)
+					cursor.execute(truncate)				
+		db.close()
 
 	def delete_answers(self, user_id, survey_id):
 		sql = '''DELETE FROM survey_{} WHERE user_id=%s'''.format(survey_id)

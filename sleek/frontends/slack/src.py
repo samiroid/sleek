@@ -205,7 +205,7 @@ class Sleek4Slack():
 			   		   "channel":channel}
 			reminder, survey = arg2.split("@")
 			cmd = "join {} {}".format(survey, reminder)
- 			join_reply = self.sleek.read(cmd, context)[1:]
+ 			join_reply = self.sleek.read(cmd, context)[1: ]
  			list_reply = self.sleek.read("list", context)[-1]
 			thread = data["thread_ts"]			
  			#r.set_field("remind_survey",arg2)

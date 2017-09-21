@@ -1,7 +1,10 @@
 import pandas as pd
 from string import ascii_letters
 import itertools
-from ipdb import set_trace
+try:
+	from ipdb import set_trace
+except ImportError:
+	from pdb import set_trace
 
 COLOR_1="#0D6D8C"
 COLOR_2="#00A0BF"
