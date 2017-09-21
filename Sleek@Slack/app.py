@@ -3,7 +3,7 @@ import json
 import os
 import sys
 sys.path.insert(0,'..')
-from sleek import Backend
+from sleek import Backend, PostgreBackend
 from sleek.frontends.slack import Sleek4Slack
 # from ipdb import set_trace
 
@@ -36,12 +36,20 @@ if __name__ == "__main__":
 	args = parser.parse_args()		
 	confs = json.load(open(args.cfg, 'r'))		 					
 	if args.init:
-		db = Backend(confs,init=True)	
-		print "[backend @ {} was initialized]".format(confs["local_DB"])
+		db_type = confs["backend_type"]
+		if db_type == "local":
+			db = Backend(confs,init=True)	
+			print "[backend @ {} was initialized]".format(confs["local_DB"])
+		elif db_type == "postgre":			
+			db = PostgreBackend(confs, init=True)	
+			print "[backend @ {} was initialized]".format(confs["remote_DB"]["host"])
 	if args.surveys is not None:		
-		db = Backend(confs)
+		if db_type == "local":
+			db = Backend(confs)				
+		elif db_type == "postgre":			
+			db = PostgreBackend(confs)		
 		db.load_surveys(args.surveys)
-		print "loaded surveys"
+		print "loaded surveys"	
 	elif args.connect:		
 		try:
 			api_token_id = confs["api_token_id"]

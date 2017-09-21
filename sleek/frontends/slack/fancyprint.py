@@ -1,6 +1,7 @@
 import pandas as pd
 from string import ascii_letters
-#from ipdb import set_trace
+import itertools
+from ipdb import set_trace
 
 COLOR_1="#0D6D8C"
 COLOR_2="#00A0BF"
@@ -9,7 +10,11 @@ def format(msg):
 	if msg.type == "survey_list":
 		user_surveys = msg.get_field("user_surveys")
 		other_surveys = msg.get_field("other_surveys")
-		return attach_survey_list(user_surveys, other_surveys)		 
+		remind_survey = msg.get_field("remind_survey")		
+		user_id = msg.get_field("user_id")
+		api_token = msg.get_field("api_token")
+		callback_id = user_id+"@"+api_token				
+		return attach_survey_list(user_surveys, other_surveys, callback_id, remind_survey)		 
 	elif msg.type == "report":
 		survey = msg.get_field("survey")
 		data   = msg.get_field("data")
@@ -175,7 +180,7 @@ def get_actions(callback_id, cancel_button=True,
 	
 	attach = { "fallback": "actions",
     		 	"color": "#CCCCCC",	        		 		
-    		 	"callback_id":callback_id,          		         		 		
+    		 	"callback_id":callback_id,         		         		 		
     	     	"mrkdwn_in": ["text","pretext","title","fields"],
     	     	"actions":actions }
  	return attach
@@ -333,7 +338,7 @@ def attach_survey(survey, callback_id):
 
 	return attaches	
 
-def attach_survey_list(user_surveys, other_surveys):	
+def attach_survey_list(user_surveys, other_surveys, callback_id, remind_survey=None):	
 	active_list = []
 	attach = []	
 	if len(user_surveys) > 0:
@@ -376,20 +381,111 @@ def attach_survey_list(user_surveys, other_surveys):
 	        	     "fields":active_list,
 	        	     "mrkdwn_in": ["text","pretext","title","fields"]
 			 				})
-	inactive_list = []
+	# inactive_list = []
+	new_surveys = []
+
 	for survey in other_surveys:
-		inactive_list.append({                    
-                    "value": u"_{}_".format(survey),
-                    "short": True
-                })
-	
-	if len(inactive_list) > 0:
+		if survey != remind_survey:
+			new_surveys.append({"name": "[pong:set_reminder]",
+    							 "text": survey,
+    							 "type": "button",	
+    							 "style": "primary",	        
+    							"value": survey})	
+
+	menu = []
+	if remind_survey is not None:
+		am_hours = range(7,12)
+		pm_hours = range(1,5)
+		mins = ["",":10",":20",":30",":40",":50"]
+		am_times = list(itertools.product(am_hours,mins))
+		pm_times = list(itertools.product(pm_hours,mins))	
+		all_times = ["{}{} AM".format(h,m) for (h,m) in am_times]
+		all_times += ["{}{} PM".format(h,m) for (h,m) in pm_times]
+		quick_reminders = []
+		for qr in all_times:
+			quick_reminders.append({
+			                "text": u"{}".format(qr),		                    
+		                	"value": qr.replace(" ","")+"@"+remind_survey
+		                })			
+		menu.append({"name": "[pong:join]",
+	               "text": "quick reminder ({})".format(remind_survey),
+	               "type": "select",
+	               "options": quick_reminders})
+	menu.append({"name": "[pong:close]",
+    					"text": "close",
+    					"type": "button",	
+    					"style": "danger",	        
+    					"value":"[pong:close]"})
+	if len(new_surveys) > 0:
 		attach.append({ "fallback": "reponse",
 	    		 		"color": COLOR_2,
 	    		 		"title": "Available Surveys",
-	    	     		"fields":inactive_list,
+	    		 		"callback_id":callback_id,	    	     		
+	    	     		"actions":new_surveys,
 	    	     		"mrkdwn_in": ["text","pretext","title","fields"]})
+	attach.append({ "fallback": "reponse",
+					"callback_id":callback_id,	    		 	
+	    	     	"actions":menu,
+	    	     	"mrkdwn_in": ["text","pretext","title","fields"]})
    	return attach
+
+# def attach_survey_list(user_surveys, other_surveys):	
+# 	active_list = []
+# 	attach = []	
+# 	if len(user_surveys) > 0:
+# 		active_list.append({                    
+# 	                    "value": "*Subscribed Surveys*",
+# 	                    "short": True
+# 	                })
+			
+# 		active_list.append({                    
+# 	                "value": "*Reminders*",
+# 	                "short": True
+# 	            })
+# 		for survey, reminders in user_surveys.items():		
+# 			#format reminder schedules
+# 			rems = ""
+# 			for r in reminders: 
+# 				if r is not None:
+# 					rems+="`{}`\t".format(r)
+# 			#if this survey has reminders put survey and reminders side by side
+# 			if len(rems)>0:
+# 				active_list.append({                    
+# 	                    "value": u">*{}*".format(survey),
+# 	                    "short": True
+# 	                })
+			
+# 				active_list.append({                    
+# 		                    "value": "{}".format(rems),
+# 		                    "short": True
+# 		                })
+# 			else:
+# 				active_list.append({                    
+# 	                    "value": u">*{}*".format(survey),
+# 	                    "short": False
+# 	                })
+
+# 		#build attach
+# 		attach.append({ "fallback": "reponse",
+# 	        		 "color": COLOR_1,  
+# 	        		 "title": "",
+# 	        	     "fields":active_list,
+# 	        	     "mrkdwn_in": ["text","pretext","title","fields"]
+# 			 				})
+# 	inactive_list = []
+# 	for survey in other_surveys:
+# 		inactive_list.append({                    
+#                     "value": u"_{}_".format(survey),
+#                     "short": True
+#                 })
+	
+# 	if len(inactive_list) > 0:
+# 		attach.append({ "fallback": "reponse",
+# 	    		 		"color": COLOR_2,
+# 	    		 		"title": "Available Surveys",
+# 	    	     		"fields":inactive_list,
+# 	    	     		"mrkdwn_in": ["text","pretext","title","fields"]})
+#    	return attach
 	
 # methods to format the replies
 def text_answer(a, notes=None):	

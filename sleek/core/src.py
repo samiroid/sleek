@@ -221,8 +221,11 @@ class Sleek(ChatBot):
 		if confs["backend_type"]=="local":
 			self.backend = Backend(confs)
 		elif confs["backend_type"]=="kafka":
-			from backend import KafkaBackend
+			from ..backends import KafkaBackend			
 			self.backend = KafkaBackend(confs)		
+		elif confs["backend_type"]=="postgre":
+			from ..backends import PostgreBackend
+			self.backend = PostgreBackend(confs)
 		else:
 			raise NotImplementedError		
 		try:
@@ -477,6 +480,7 @@ class Sleek(ChatBot):
 		m = SleekMsg(output, msg_type="survey_list")
 		m.set_field("user_surveys", user_surveys)
 		m.set_field("other_surveys", other_surveys)
+		m.set_field("user_id", user_id)
 		return [SleekMsg(self.ack()), m]
 
 	def cmd_survey_take(self, tokens, context):
@@ -484,7 +488,7 @@ class Sleek(ChatBot):
 		if len(tokens) < 2: 			
 			return [SleekMsg(self.get_oops()),
 					SleekMsg(out.MISSING_PARAMS),
-					SleekMsg(Sleek.__help_dict["leave"][0]) ]
+					SleekMsg(Sleek.__help_dict["survey"][0]) ]
 		survey_id = tokens[1]
 		user_id = context["user_id"]					
 		#check if survey exists
@@ -720,7 +724,7 @@ def plot_report(survey, data, path):
         p.set_yticks(uniques)
         p.set_yticklabels(q["choices"])
     plot_id = uuid.uuid4().hex
-    my_path = "{}/{}.jpg".format(path.strip("/"), plot_id)
+    my_path = "{}/{}.png".format(path.strip("/"), plot_id)
     print my_path
     dir_name = os.path.dirname(my_path)
     if len(dir_name)>0 and not os.path.exists(dir_name):
@@ -737,8 +741,7 @@ def plot_team_report(survey, data, path):
         q_id = q["q_id"]
         df_answers[q_id] = map(lambda x: int(x), df_answers[q_id])
     df_aggs = df_answers.groupby(["date"])
-    df_means = df_aggs.mean()
-    #df_stds =  df_aggs.std().fillna(0)
+    df_means = df_aggs.mean()    
     df_cnts =  df_aggs.count()
     del df_cnts["ts"]
 
@@ -753,12 +756,7 @@ def plot_team_report(survey, data, path):
                                fontsize=10,use_index=True,ax=ax[1],
                                subplots=True, layout=(1 ,cols))
     if cols == 1: 
-#        stds_plot = rep_plot[0]
         mean_plots = mean_plots[0]
-#    for q, p in zip(survey["questions"], stds_plot):
-#        uniques = range(len(q["choices"])+1)
-#        p.set_yticks(uniques)
-#        p.set_yticklabels(q["choices"])
     for q, p in zip(survey["questions"], mean_plots):
         uniques = range(len(q["choices"])+1)
         p.set_yticks(uniques)

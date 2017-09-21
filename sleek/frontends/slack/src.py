@@ -139,7 +139,7 @@ class Sleek4Slack():
 		user_id   = data["attachments"][0]["author_name"]
 		thread_ts = data["thread_ts"]
 		text      = data["attachments"][0]["text"]
-		channel   = self.user2DM[user_id]		
+		channel   = self.user2DM[user_id]				
  		arg1, arg2 = text.split()	 		
  		
  		# ====== OK ======
@@ -186,6 +186,35 @@ class Sleek4Slack():
 							    reminder_thread)
  			r = reply[-1] 
  			self.postMessage(channel, r)
+
+ 		# ====== SET REMINDER ======
+		elif arg1 == "[pong:set_reminder]":
+			context = {"user_id":user_id,
+			   		   "channel":channel}			
+ 			reply = self.sleek.read("list", context) 			
+			thread = data["thread_ts"]						 			
+ 			r = reply[-1]
+ 			r.set_field("remind_survey",arg2)
+ 			r.set_field("user_id",user_id) 			
+ 			self.updateMessage(channel, 
+							    r,
+							    thread)
+	    # ====== JOIN ======
+		elif arg1 == "[pong:join]":
+			context = {"user_id":user_id,
+			   		   "channel":channel}
+			reminder, survey = arg2.split("@")
+			cmd = "join {} {}".format(survey, reminder)
+ 			join_reply = self.sleek.read(cmd, context)[1:]
+ 			list_reply = self.sleek.read("list", context)[-1]
+			thread = data["thread_ts"]			
+ 			#r.set_field("remind_survey",arg2)
+ 			#r.set_field("user_id",user_id) 			
+ 			self.updateMessage(channel, 
+							    list_reply,
+							    thread)
+ 			for r in join_reply:
+ 				self.postMessage(channel, r)
 
  		# ====== CANCEL ======
 		elif arg2 == "[pong:cancel]":
@@ -280,6 +309,10 @@ class Sleek4Slack():
  			#self.open_responses[user_id]["reminder_thread"]
  			txt = u"OK :disappointed_relieved:"
  			self.updateMessage(channel, txt, reminder_thread)
+
+		elif arg1 == "[pong:close]":
+ 			thread = data["thread_ts"]
+ 			self.deleteMessage(channel, thread)
  		
  		# ====== ANSWER ======
  		else: #this an answer 	
@@ -403,8 +436,7 @@ class Sleek4Slack():
 				resp = self.post_plot(channel, message)
 			else:
 				message.set_field("interactive", self.interactive)		
-				if message.get_field("user_id") is not None:
-					message.set_field("api_token", self.slack_client.token)
+				message.set_field("api_token", self.slack_client.token)
 				fm = fancier.format(message)		
 				if type(fm) == unicode:
 					resp = self.__post(channel, fm, thread_ts=thread_ts)
@@ -446,9 +478,8 @@ class Sleek4Slack():
 		if type(message) == unicode:
 			resp = self.__update(channel, message, ts, attach)
 		elif type(message) == SleekMsg:
-			message.set_field("interactive", self.interactive)		
-			if message.get_field("user_id") is not None:
-				message.set_field("api_token", self.slack_client.token)
+			message.set_field("interactive", self.interactive)					
+			message.set_field("api_token", self.slack_client.token)			
 			fm = fancier.format(message)		
 			if type(fm) == unicode:
 				resp = self.__update(channel, fm, ts=ts)
